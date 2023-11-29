@@ -73,8 +73,8 @@ def extract_order_json(input_string):
     return order_json_1
 
 
-def gettaxrate(restuarant_number):
-    bot = restaurants_bot.query.filter_by(restuarant_number = restuarant_number).first()
+def gettaxrate(restaurant_number):
+    bot = restaurants_bot.query.filter_by(restaurant_number = restaurant_number).first()
     baseURL = bot.clover_url
     headers = {'Content-type': 'application/json', 'authorization': bot.clover_authorization_header}
     url = baseURL + "tax_rates/Y4JM6PA9ZM58W"
@@ -87,20 +87,20 @@ def gettaxrate(restuarant_number):
 
 
 # --- Function to add the order in the database
-def add_order_in_db(restuarant_number, customer_session_id, customer_name,
+def add_order_in_db(restaurant_number, customer_session_id, customer_name,
                     customer_phone_number, customer_order, customer_total_order_price):
         # ---> Convert order json into string
         order_string = json.dumps(customer_order)
         # ---> Initializing a new order
-        new_order = orders(restuarant_number, customer_session_id, customer_name,
+        new_order = orders(restaurant_number, customer_session_id, customer_name,
                            customer_phone_number, order_string, customer_total_order_price)
         
         # ---> Adding in the database
         db.session.add(new_order)
         db.session.commit()
-        # ---> Getting order id using customer session id and restuarant bot using restaurant phone numeber
+        # ---> Getting order id using customer session id and restaurant bot using restaurant phone number
         order_id = orders.query.filter_by(customer_session_id = customer_session_id).first().id
-        bot_id = restaurants_bot.query.filter_by(restuarant_number = restuarant_number).first().id
+        bot_id = restaurants_bot.query.filter_by(restaurant_number = restaurant_number).first().id
 
         return order_id, bot_id
 
@@ -204,14 +204,14 @@ def getOrder(order, baseURL, headers):
 # --- A function to retrieve order from the database and add it to clover once payment is successfull 
 def Send_Order_to_clover(order_id, bot_id):
 
-    # ---> Getting restuarant bot information from database using restuarant bot id
+    # ---> Getting restaurant bot information from database using restaurant bot id
     restaurant_bot = restaurants_bot.query.filter_by(id = bot_id).first()
     # ---> Getting order information from database using order id
     current_order = orders.query.filter_by(id = order_id).first()
     # ---> Converting string order to json
     print((current_order))
     json_order = json.loads(current_order.customer_order)
-    # ---> Getting Clover information from the restuarant bot we extracted
+    # ---> Getting Clover information from the restaurant bot we extracted
     baseURL = restaurant_bot.clover_url
     headers = {'Content-type': 'application/json', 'authorization': restaurant_bot.clover_authorization_header}
 
@@ -226,7 +226,7 @@ def Send_Order_to_clover(order_id, bot_id):
             addLineItem(order, item, myItem, baseURL, headers)
     # ---> Open the order so its visible on other devices
     openOrder(order, baseURL, headers)
-    tax_rate = gettaxrate(restaurant_bot.restuarant_number)
+    tax_rate = gettaxrate(restaurant_bot.restaurant_number)
     tax_rate_percentage = tax_rate/100000
     order_amount = current_order.customer_total_order_price
     numeric_price = ''.join(c for c in order_amount if c.isdigit() or c == '.')

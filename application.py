@@ -12,7 +12,7 @@ from session_manager import create_session, set_session_attribute, \
 from StripePython import send_stripe_payment_message
 from twilio.twiml.voice_response import VoiceResponse
 import threading
-from restaurant_bots import get_bot 
+from restaurant_bots import get_bot
 
 
 application = Flask(__name__)
@@ -88,19 +88,19 @@ def initialize_application_menu(restaurant_phone_number):
     except Exception as e:
         print(restaurant_phone_number, 'not found in the mapping file')
         return "Sorry for inconvenience. I am connecting you to the actual agent wait for some moments!", 500
-    
+
     try:
         fetched_menu, status_code = fetch_remote_menu(restaurant_id, "items")
         if status_code == 200:
             persist_menu(restaurant_id, fetched_menu.text)
-            return ('Initialization for Menu Completed') ,status_code
+            return ('Initialization for Menu Completed'), status_code
         return fetched_menu, status_code
     except:
         print('No properties found for restaurant associate with the phone number', restaurant_phone_number)
         return "Sorry for inconvenience. I am connecting you to the actual agent wait for some moments.", 501
 
 
-# --- Function for creating the prompt for the restuarant phone number
+# --- Function for creating the prompt for the restaurant phone number
 def initialize_application_prompt(restaurant_phone_number):
     reply, status_code = initialize_application_menu(restaurant_phone_number)
     if status_code != 200:
@@ -140,7 +140,9 @@ def voice():
     if get_session_attribute('order') == "Confirm":
         response.redirect('/place_order')
     else:
-        gather = response.gather(action="/voice", method="POST", input="speech dtmf", numDigits="1", speechTimeout = "auto" ,timeout=7, language='en-IN', enhanced="true", speechModel="phone_call")
+        gather = response.gather(action="/voice", method="POST", input="speech dtmf", numDigits="1",
+                                 speechTimeout="auto", timeout=7, language='en-IN', enhanced="true",
+                                 speechModel="phone_call")
         if get_session_attribute('first_message') == True and status_code == 200:
             # ---> First Hard code Query
             first_user_query = "Hi"
@@ -155,7 +157,7 @@ def voice():
                 if choice == '9':
                     gather.say("I am connecting you to the actual agent wait for some moments")
                     agent_number = get_bot(restaurant_phone_number).agent_number
-                    response.dial(agent_number) 
+                    response.dial(agent_number)
             else:
                 speech_result = request.form['SpeechResult']
                 if speech_result:
@@ -178,8 +180,9 @@ def voice():
         # ---> If there is no error continue call if user doesn't say anything for next 7 seconds
         if status_code == 200 and get_session_attribute('order') != "Confirm":
             response.say("Are you still there?")
-            gather = response.gather(action="/voice", method="POST", input="speech dtmf",numDigits="1", speechTimeout = "auto", language='en-IN', enhanced="true", speechModel="phone_call")
-            
+            gather = response.gather(action="/voice", method="POST", input="speech dtmf", numDigits="1",
+                                     speechTimeout="auto", language='en-IN', enhanced="true", speechModel="phone_call")
+
     return str(response)
 
 
@@ -188,7 +191,8 @@ def voice():
 def place_order():
     # ---> Once order is successfully placed bot says below statement
     response = VoiceResponse()
-    response.say("Your order has been placed successfully. You will receive a payment link via SMS. Your order will be ready in 15 to 20 minutes after payment should be done. Thank you for your business.")
+    response.say(
+        "Your order has been placed successfully. You will receive a payment link via SMS. Your order will be ready in 15 to 20 minutes after payment should be done. Thank you for your business.")
     response.hangup()
 
     # ---> Getting order in json format using order_query of order module
@@ -196,18 +200,18 @@ def place_order():
     id = get_session_attribute('session_id')
     from_ = get_session_attribute('to_number')
     to_ = get_session_attribute('from_number')
-    
+
     def send_strip(session_id, from_number, to_number, history):
         with application.test_request_context():
             send_stripe_payment_message(session_id, from_number, to_number, history)
 
     # ---> Sending payment message to customer
     thread = threading.Thread(
-            target=send_strip,
-            args=(
-                id, from_, to_, history
-            )
+        target=send_strip,
+        args=(
+            id, from_, to_, history
         )
+    )
     thread.start()
     end_session()
     return str(response)

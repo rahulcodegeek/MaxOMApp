@@ -5,13 +5,13 @@ import json
 
 # --- A function to fetch the menu from the clover url 
 def fetch_remote_menu(restaurant_id, endpoint):
-    # ---> First read the properties using the restuarant id
+    # ---> First read the properties using the restaurant id
     restaurant_config = Properties()
     restaurant_properties_file = "resources/"+restaurant_id+"/restaurant.properties"
     with open(restaurant_properties_file, 'rb') as config_file:
         restaurant_config.load(config_file)
         try:
-            # ---> Getting clover url and authentication token from properties of the restuarant
+            # ---> Getting clover url and authentication token from properties of the restaurant
             url = restaurant_config.get('clover_url').data
             auth = restaurant_config.get('clover_authorization_header').data
             headers = {"authorization": auth}
@@ -99,7 +99,7 @@ def persist_menu(restaurant_id, fetched_menu):
     file.close()
 
 
-# --- A function to load the menu from the restuarant id path and return it
+# --- A function to load the menu from the restaurant id path and return it
 def load_menu(restaurant_id):
     try:
         menu_file_name = "resources/"+restaurant_id+"/menu.txt"

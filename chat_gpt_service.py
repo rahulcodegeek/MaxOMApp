@@ -29,7 +29,7 @@ def chat_gpt_query(user_query):
     history.append({"role": "user", "content": user_query})
     set_session_attribute('user_mes', history)
 
-    # --> Calling ChatGpt Api and return its reply with status 200 if succesfull other wise return with status 502
+    # --> Calling ChatGpt Api and return its reply with status 200 if successful otherwise return with status 502
     try:
         chat = ChatCompletion.create(model="gpt-4-1106-preview", messages=get_session_attribute('user_mes'))
         reply = chat.choices[0].message.content

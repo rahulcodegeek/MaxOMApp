@@ -4,7 +4,7 @@ from session_manager import get_session_attribute, set_session_attribute
 from database import db, restaurants_bot
 
 
-# --- Creating an prompt for the each restuarant using the restuarant information which is extracted using restuarant id
+# --- Creating an prompt for the each restaurant using the restaurant information which is extracted using restuarant id
 def create_prompt_data(restaurant_id):
     # ---> Reading properties of the restuarannt using the restaurant id 
     prompt_file = open('resources/prompt.txt')
@@ -30,10 +30,10 @@ def create_prompt_data(restaurant_id):
     prompt_file.close()
     
     try:
-        # ---> Adding the restuarant bot to the database using the properties read from the file if already not in the database
+        # ---> Adding the restaurant bot to the database using the properties read from the file if already not in the database
         restaurant_number = get_session_attribute('to_number')    # ---> Getting the current phone number 
         existing_bot = restaurants_bot.query.filter(
-            restaurants_bot.restuarant_number == restaurant_number
+            restaurants_bot.restaurant_number == restaurant_number
         ).first()
         
         if existing_bot:
@@ -45,7 +45,7 @@ def create_prompt_data(restaurant_id):
                                     restaurant_config.get("timings").data, restaurant_config.get("representative_name").data,
                                     restaurant_config.get("address").data, restaurant_config.get("today_special").data,
                                     restaurant_config.get("clover_url").data, restaurant_config.get("clover_authorization_header").data,
-                                    restaurant_config.get("twilio_account_sid").data, restaurant_config.get("twilio_acount_auth_token").data,
+                                    restaurant_config.get("twilio_account_sid").data, restaurant_config.get("twilio_account_auth_token").data,
                                     restaurant_config.get("agent_number").data)
             db.session.add(new_bot)
             db.session.commit()

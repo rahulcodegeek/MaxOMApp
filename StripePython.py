@@ -11,7 +11,7 @@ app_url = "http://voicebotapi.eu-west-1.elasticbeanstalk.com/"
 
 # --- Create Checkout Session is a function to create a Stripe
 # --- Checkout session and return that session
-# --- using bill id, bill amount, order id and restuarant bot id
+# --- using bill id, bill amount, order id and restaurant bot id
 def create_checkout_session(bill_id, bill_amount, order_id, bot_id):
     try:
         # --> Creating a stripe session to get the url for payment process
@@ -91,15 +91,15 @@ def send_stripe_payment_message(session_id, from_number, to_number, history):
     stripe_session, status_code = create_checkout_session(session_id, total_price, order_id, bot_id)
     checkouturl = get_checkout_url(stripe_session.id)
 
-    # ---> Adding the restuarant bot to the database using the properties read from the file if already not in the database
+    # ---> Adding the restaurant bot to the database using the properties read from the file if already not in the database
     restaurant_number = from_number    # ---> Getting the current phone number 
     existing_bot = restaurants_bot.query.filter(
-        restaurants_bot.restuarant_number == restaurant_number
+        restaurants_bot.restaurant_number == restaurant_number
     ).first()
     
     # ---> Setting twilio account SID and Auth token to send message to user phone number
     account_sid = existing_bot.twilio_account_sid
-    auth_token = existing_bot.twilio_acount_auth_token
+    auth_token = existing_bot.twilio_account_auth_token
     client = Client(account_sid, auth_token)
     # ---> Message for customer
     message_body = "Dear "+order['customer_name']+"! Your Order Has Been Placed.\n\n" + order_data \
