@@ -1,0 +1,47 @@
+import openai
+from openai import ChatCompletion, OpenAIError
+from session_manager import get_session_attribute, set_session_attribute
+
+# Initialize OpenAI
+openai.api_key_path = 'resources/chatgpt_api_key'
+openai.api_endpoint = 'https://api.openai.com/v1/chat/completions'
+
+
+# --- Conversation with ChatGpt
+def conversation(user_query):
+    # --> Sending the user query to the chatgpt function
+    if user_query is None or user_query.strip() == '':
+        return 'Sorry for inconvenience. I am connecting you to the actual agent wait for some moments.', 500
+
+    response, status_code = chat_gpt_query(user_query)
+    return response, status_code
+
+
+# --- Calls ChatGpt Api using gpt-3.5-turbo-16k model
+def chat_gpt_query(user_query):
+    if get_session_attribute('user_mes') is None:
+        return 'Sorry for inconvenience. I am connecting you to the actual agent wait for some moments.', 400
+
+    user_query = user_query + ' (refer to context)'
+
+    # --> Getting previous conversation
+    history = get_session_attribute('user_mes')
+    history.append({"role": "user", "content": user_query})
+    set_session_attribute('user_mes', history)
+
+    # --> Calling ChatGpt Api and return its reply with status 200 if succesfull other wise return with status 502
+    try:
+        chat = ChatCompletion.create(model="gpt-4-1106-preview", messages=get_session_attribute('user_mes'))
+        reply = chat.choices[0].message.content
+        status = 200
+    except OpenAIError as e:
+        print(e)
+        reply = "Sorry for inconvenience. I am connecting you to the actual agent wait for some moments."
+        status = 502
+
+    # --> Storing updated conversation
+    history = get_session_attribute('user_mes')
+    history.append({"role": "assistant", "content": reply})
+    set_session_attribute('user_mes', history)
+
+    return reply, status
