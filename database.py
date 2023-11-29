@@ -55,5 +55,5 @@ class restaurants_bot(db.Model):
         self.clover_url = clover_url
         self.clover_authorization_header = clover_authorization_header
         self.twilio_account_sid = twilio_account_sid
-        self.twilio_acount_auth_token = twilio_account_auth_token
+        self.twilio_account_auth_token = twilio_account_auth_token
         self.agent_number = agent_number

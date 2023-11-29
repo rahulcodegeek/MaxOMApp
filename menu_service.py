@@ -47,7 +47,7 @@ def persist_menu(restaurant_id, fetched_menu):
 
     menu_data = json.loads(fetched_menu)
     menu_elements = menu_data['elements']
-    # ---> Extract only desrired fields from menu items (id, name, price)
+    # ---> Extract only desired fields from menu items (id, name, price)
     extracted_menu_items = []
     for element in menu_elements:
         extracted_element = {

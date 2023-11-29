@@ -28,9 +28,9 @@ def create_checkout_session(bill_id, bill_amount, order_id, bot_id):
                 'quantity': 1,
             }],
             mode='payment',
-            # --> Goes to this successfull url to send order to clover once payment is completed
+            # --> Goes to this successful url to send order to clover once payment is completed
             success_url=f'{app_url}payment_successful?bill_id={bill_id}&bill_amount={bill_amount}&order_id={order_id}&bot_id={bot_id}',
-            # --> Goes to below failed url in case of unsuccessfull payment
+            # --> Goes to below failed url in case of unsuccessful payment
             cancel_url=f'{app_url}payment_failed?bill_id={bill_id}&bill_amount={bill_amount}',
             client_reference_id=bill_id,
         )

@@ -186,7 +186,7 @@ def voice():
     return str(response)
 
 
-# --- Route to placed the order 
+# --- Route to place the order
 @application.route("/place_order", methods=['POST'])
 def place_order():
     # ---> Once order is successfully placed bot says below statement
@@ -201,13 +201,13 @@ def place_order():
     from_ = get_session_attribute('to_number')
     to_ = get_session_attribute('from_number')
 
-    def send_strip(session_id, from_number, to_number, history):
+    def send_to_stripe(session_id, from_number, to_number, history):
         with application.test_request_context():
             send_stripe_payment_message(session_id, from_number, to_number, history)
 
     # ---> Sending payment message to customer
     thread = threading.Thread(
-        target=send_strip,
+        target=send_to_stripe,
         args=(
             id, from_, to_, history
         )
