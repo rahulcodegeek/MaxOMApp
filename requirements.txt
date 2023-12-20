@@ -8,7 +8,6 @@ click==8.1.7
 colorama==0.4.6
 Flask-SQLAlchemy==3.1.1
 Flask-CORS==4.0.0
-greenlet==2.0.2
 importlib-metadata==6.8.0
 itsdangerous==2.1.2
 Jinja2==3.1.2
@@ -20,6 +19,12 @@ Flask==3.0.0
 Flask-Session==0.5.0
 Werkzeug==3.0.0
 zipp==3.17.0
+
+greenlet==3.0.1
+SQLAlchemy-Utils==0.41.1
+pyasn1==0.5.1
+rsa==4.9
+
 
 jproperties==2.1.1
 

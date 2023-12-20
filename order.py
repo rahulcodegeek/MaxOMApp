@@ -1,12 +1,15 @@
 import json
 import requests
-from database import db, orders, restaurants_bot
-import openai
+from db_persisters.orders import get_order_by_order_id
 from openai import ChatCompletion, OpenAIError
+from db_persisters.restaurant_system_configuration import \
+    get_restaurants_configuration
+from db_persisters.restaurants import get_restaurants
+from db_persisters.customer import get_customers_by_id
+import base64
+import rsa
+from database import privateKey
 
-# Initialize OpenAI
-openai.api_key_path = 'resources/chatgpt_api_key'
-openai.api_endpoint = 'https://api.openai.com/v1/chat/completions'
 
 
 # --- A function that converts the current order into the json format using ChatGpt 
@@ -46,7 +49,7 @@ def order_query(history):
         status = 200
     except OpenAIError as e:
         print(e)
-        reply = "Sorry for inconvenience. I am connecting you to the actual agent wait for some moments."
+        reply = "Sorry for inconvenience eight. I am connecting you to the actual agent wait for some moments."
         status = 502
     # ---> Extracting the order in json type 
     order = extract_order_json(reply)
@@ -74,9 +77,20 @@ def extract_order_json(input_string):
 
 
 def gettaxrate(restaurant_number):
-    bot = restaurants_bot.query.filter_by(restaurant_number = restaurant_number).first()
-    baseURL = bot.clover_url
-    headers = {'Content-type': 'application/json', 'authorization': bot.clover_authorization_header}
+    res = get_restaurants(restaurant_number)
+    res_config = get_restaurants_configuration(res.id)
+    baseURL = rsa.decrypt(
+        base64.b64decode(res_config.pos_url), privateKey
+    ).decode()
+    auth = rsa.decrypt(
+        base64.b64decode(res_config.pos_authorization_header),
+        privateKey
+    ).decode()
+    headers = {
+        'Content-type': 'application/json',
+        "authorization": f'Bearer {auth}'
+    }
+    #TODO - Y4JM6PA9ZM58W to be replaced from the dynamic configuration
     url = baseURL + "tax_rates/Y4JM6PA9ZM58W"
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
@@ -84,25 +98,6 @@ def gettaxrate(restaurant_number):
         return res['rate']
     else:
         print(response)
-
-
-# --- Function to add the order in the database
-def add_order_in_db(restaurant_number, customer_session_id, customer_name,
-                    customer_phone_number, customer_order, customer_total_order_price):
-        # ---> Convert order json into string
-        order_string = json.dumps(customer_order)
-        # ---> Initializing a new order
-        new_order = orders(restaurant_number, customer_session_id, customer_name,
-                           customer_phone_number, order_string, customer_total_order_price)
-        
-        # ---> Adding in the database
-        db.session.add(new_order)
-        db.session.commit()
-        # ---> Getting order id using customer session id and restaurant bot using restaurant phone number
-        order_id = orders.query.filter_by(customer_session_id = customer_session_id).first().id
-        bot_id = restaurants_bot.query.filter_by(restaurant_number = restaurant_number).first().id
-
-        return order_id, bot_id
 
 
 # --- A function to create an order on the clover
@@ -159,6 +154,7 @@ def openOrder(order, baseURL, headers):
 # --- A function to createPayment or Order
 def createPayment(order, baseURL, headers, amount):
     url = baseURL + 'orders/' + order['id'] + "/payments"
+    #TODO - Replace XVEZXVCJ38V8E to fetch dynamically
     payload = {
         "order": { "id": order['id'] },
         "tender": { "id": "XVEZXVCJ38V8E" },
@@ -191,7 +187,7 @@ def createPayment(order, baseURL, headers, amount):
         print(r)
 
 
-# --- A function to get the order using the order id to confirm it is successufull palced
+# --- A function to get the order using the order id to confirm it is successfully placed
 def getOrder(order, baseURL, headers):
     url = baseURL + 'orders/' + order['id'] + '?expand=payments'
     r = requests.get(url, headers=headers)
@@ -201,41 +197,47 @@ def getOrder(order, baseURL, headers):
         print(r)
 
 
-# --- A function to retrieve order from the database and add it to clover once payment is successfull 
-def Send_Order_to_clover(order_id, bot_id):
-
-    # ---> Getting restaurant bot information from database using restaurant bot id
-    restaurant_bot = restaurants_bot.query.filter_by(id = bot_id).first()
+# --- A function to retrieve order from the database and add it to clover once payment is successful
+def send_order_to_clover(order_id, res_id):
+     # ---> Getting restaurant bot information from database using restaurant bot id
+    res_config = get_restaurants_configuration(res_id)
     # ---> Getting order information from database using order id
-    current_order = orders.query.filter_by(id = order_id).first()
+    current_order = get_order_by_order_id(order_id)
     # ---> Converting string order to json
-    print((current_order))
-    json_order = json.loads(current_order.customer_order)
+    json_order = json.loads(current_order.order_details)
     # ---> Getting Clover information from the restaurant bot we extracted
-    baseURL = restaurant_bot.clover_url
-    headers = {'Content-type': 'application/json', 'authorization': restaurant_bot.clover_authorization_header}
-
+    baseURL = rsa.decrypt(
+        base64.b64decode(res_config.pos_url), privateKey
+    ).decode()
+    auth = rsa.decrypt(
+        base64.b64decode(res_config.pos_authorization_header),
+        privateKey
+    ).decode()
+    headers = {
+        'Content-type': 'application/json',
+        "authorization": f'Bearer {auth}'
+    }
     # ---> Create order and grab order ID
-    order = createOrder(baseURL, headers, current_order.customer_name)
+    customer = get_customers_by_id(current_order.customer_id)
+    order = createOrder(baseURL, headers, customer.customer_name)
     data_items = json_order['order']
     for item in data_items:
         for i in range(int(item['item_quantity'])):
-            # ---> First getting the item from the clover which is in current order
-            myItem = requests.get(baseURL + 'items/' + item['item_id'], headers=headers).json()
+            # ---> First getting the item from the clover which is in
+            # ---> current order
+            myItem = requests.get(
+                baseURL + 'items/' + item['item_id'],
+                headers=headers
+            ).json()
             # ---> Then Add it in the order which is just created
             addLineItem(order, item, myItem, baseURL, headers)
     # ---> Open the order so its visible on other devices
     openOrder(order, baseURL, headers)
-    tax_rate = gettaxrate(restaurant_bot.restaurant_number)
-    tax_rate_percentage = tax_rate/100000
-    order_amount = current_order.customer_total_order_price
-    numeric_price = ''.join(c for c in order_amount if c.isdigit() or c == '.')
-    sales_tax = (float(tax_rate_percentage) / float(100)) * float(numeric_price)
-    total_price_with_tax = float(numeric_price) + float(sales_tax)
-    final_payment = round(total_price_with_tax, 2)
-    createPayment(order, baseURL, headers, int(final_payment*100))
+    createPayment(
+        order, baseURL, headers,
+        int(float(current_order.total_price)*100)
+    )
     # ---> Getting Order
     print(getOrder(order, baseURL, headers))
 
     return "Success"
-
