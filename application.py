@@ -8,7 +8,7 @@ from order import send_order_to_clover
 from prompt_service import create_prompt_data
 from session_manager import create_session, set_session_attribute, \
     get_session_attribute, delete_session_attribute
-from stripe import send_stripe_payment_message
+from stripe_payment import send_stripe_payment_message
 from twilio.twiml.voice_response import VoiceResponse
 import threading
 from db_persisters.restaurants import add_restaurant, get_restaurants
