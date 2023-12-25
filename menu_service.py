@@ -10,11 +10,11 @@ from database import privateKey
 # --- A function to fetch the menu from the clover url
 def fetch_remote_menu(restaurant_id, endpoint):
     try:
-        print('File from 12/19/23')
+        print('File from 12/21/23')
         # ---> First read the properties using the restaurant id
         restaurant_config = get_restaurants_configuration(restaurant_id)
         # ---> Getting clover url and authentication token
-        # ---> from properties of the restuarant
+        # ---> from properties of the restaurant
         url = rsa.decrypt(
             base64.b64decode(restaurant_config.pos_url), privateKey
         ).decode()
@@ -103,10 +103,7 @@ def persist_menu(restaurant_id, fetched_menu):
         names, prices, ids, modify_group_element
     ):
         if modify_group_element != " ":
-            combined_strings.append
-            (
-              f"{name}: ${int(price)/100.0}, id: {id}, {modify_group_element}"
-            )
+            combined_strings.append(f"{name}: ${int(price)/100.0}, id: {id}, {modify_group_element}")
         else:
             combined_strings.append(f"{name}: ${int(price)/100.0}, id: {id}")
 
@@ -119,6 +116,7 @@ def persist_menu(restaurant_id, fetched_menu):
 
     # ---> Write a string to the file
     menu_to_write = food_menu
+    #print(menu_to_write)
     file.write(menu_to_write)
     # ---> Close the file
     file.close()

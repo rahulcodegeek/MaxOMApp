@@ -24,9 +24,7 @@ def create_checkout_session(bill_id, bill_amount, order_id, res_id):
         privateKey
     ).decode()
 
-    #TODO - remove this below line
-    print('Sensitive stripe.api_key', stripe.api_key)
-    #TODO: Change this per deployment or fetch this dynamcally
+    #TODO: Change this per deployment or fetch this dynamically
     app_url = "http://maxom.us-west-2.elasticbeanstalk.com/"
     # app_url = "https://8b9c-39-63-31-137.ngrok-free.app/"
     try:
@@ -150,10 +148,6 @@ def send_stripe_payment_message(session_id, from_number, to_number, history):
             base64.b64decode(res_config.voice_api_account_auth_token),
             privateKey
         ).decode()
-
-        # TODO - remove this below lines
-        print('Sensitive account_sid', account_sid)
-        print('Sensitive auth_token', auth_token)
 
         client = Client(account_sid, auth_token)
         # ---> Message for customer

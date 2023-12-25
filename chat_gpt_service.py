@@ -33,8 +33,8 @@ def chat_gpt_query(user_query):
 
     # --> Calling ChatGpt Api and return its reply with status 200 if successful otherwise return with status 502
     try:
-        #chat = ChatCompletion.create(model="gpt-4-1106-preview", messages=get_session_attribute('user_mes'))
-        chat = ChatCompletion.create(model="gpt-3.5-turbo", messages=get_session_attribute('user_mes'))
+        chat = ChatCompletion.create(model="gpt-4-1106-preview", messages=get_session_attribute('user_mes'))
+        #chat = ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=get_session_attribute('user_mes'))
         reply = chat.choices[0].message.content
         print('reply from chat is ', reply)
         status = 200

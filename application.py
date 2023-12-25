@@ -39,7 +39,7 @@ db.init_app(application)
 # --- Home Route
 @application.route('/')
 def hello_maxom():
-    return 'Hello from MaxOM On 12/19/23'
+    return 'Hello from MaxOM On 12/21/23'
 
 
 # --- Route to create the database tables which is defined in database file
@@ -182,7 +182,8 @@ def voice():
             input="speech dtmf", numDigits="1",
             speechTimeout="auto", timeout=7,
             language='en-IN', enhanced="true",
-            speechModel="phone_call"
+            speechModel="phone_call",
+            hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea"
         )
         if get_session_attribute('first_message') and status_code == 200:
             # ---> First Hard code Query
@@ -230,7 +231,8 @@ def voice():
                 input="speech dtmf", numDigits="1",
                 speechTimeout="auto",
                 language='en-IN', enhanced="true",
-                speechModel="phone_call"
+                speechModel="phone_call",
+                hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea"
             )
 
     return str(response)
