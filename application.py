@@ -3,14 +3,12 @@ from database import db
 from flask import Flask, request, session, render_template
 from flask_session import Session
 from flask_cors import CORS
-from menu_service import fetch_remote_menu, persist_menu
-from order import send_order_to_clover
+from menu_service import fetch_remote_menu, persist_menu, load_menu
+from order_without_payment import persist_customer_order_conversation, send_order_to_pos
 from prompt_service import create_prompt_data
 from session_manager import create_session, set_session_attribute, \
     get_session_attribute, delete_session_attribute
-from stripe_payment import send_stripe_payment_message
 from twilio.twiml.voice_response import VoiceResponse
-import threading
 from db_persisters.restaurants import add_restaurant, get_restaurants
 from db_persisters.restaurant_system_configuration import add_restaurant_configuration
 from db_persisters.payment_callback import add_payment_callback
@@ -25,9 +23,10 @@ Session(application)
 CORS(application)
 
 # --- Enable database
-#TODO - change this for every deployment
+#TODO - change or revisit the following two variables for every deployment
 #database_url = "mysql+pymysql://admin:voicebot@restuarantdatabase.cwr0mrljgsss.eu-west-1.rds.amazonaws.com:3306/restaurantvoicebot"
 database_url = "mysql+pymysql://admin:maxom123@awseb-e-4m68bme65w-stack-awsebrdsdatabase-uvdqhoxx5vij.cs0btkh5jqy1.us-west-2.rds.amazonaws.com:3306/restaurantvoicebot"
+is_test_mode = True
 
 # database_url = 'mysql://root:''@localhost:3308/restaurant'
 application.config["SQLALCHEMY_DATABASE_URI"] = database_url
@@ -39,7 +38,7 @@ db.init_app(application)
 # --- Home Route
 @application.route('/')
 def hello_maxom():
-    return 'Hello from MaxOM On 12/21/23'
+    return 'Hello from MaxOM On 12/29/23 01'
 
 
 # --- Route to create the database tables which is defined in database file
@@ -48,6 +47,11 @@ def create_db_tables():
     db.create_all()
     return 'Database Tables Created'
 
+@application.route('/menu/<restaurant_id>')
+def get_loaded_menu(restaurant_id):
+    menu_content, status_code = load_menu(restaurant_id)
+    return menu_content
+
 
 # --- Route to delete the database all tables
 #@application.route('/delete_db_tables')
@@ -55,27 +59,27 @@ def create_db_tables():
 #    db.drop_all()
 #    return 'Database Tables Deleted'
 
-#TODO - This will be dynamically configured for each restaurant
+#TODO - This will be dynamically configured for each restaurant. Needs to be changed to POST endpoint so,
+# all the details can be passed from the parameters as opposed to hardcoding in the code.
 # --- Configure the restaurant
 @application.route('/add_restaurant')
 def add_restaurant_database():
     print('Adding restaurant to configuration...')
     info_json = {
-        "timings": "Monday and Tuesday from 4PM to 12AM and Wednesday \
-through Friday from 11AM to 1AM",
+        "timings": "Monday and Tuesday from 4PM to 12AM and Wednesday through Friday from 11AM to 1AM",
         "representative_name": "Amy",
         "address": "280 E 12300 S, Suite 110, Draper, UT",
         "today_special": "Goat Sukka"
     }
     phone_number = add_restaurant(
-        "Paradise", "+18016181119", "+13109937203", info_json
+        "Paradise", "+18016181119", "+18018789557", info_json
     )
     res = get_restaurants(phone_number)
     add_restaurant_configuration(
         res.id, "Clover",
-        "https://sandbox.dev.clover.com/v3/merchants/YYKSZ49GMSZD1/",
-        "b955f83f-b70c-e717-abe7-95171f25b2e9",
-        "Twillio", "AC8c81f929b9a4e03c76d853b383d63a1a",
+        "https://api.clover.com/v3/merchants/WXZMNJ4CMQ7C1/",
+        "ff7cecee-cd4b-faf1-2c7a-24ff6638d89c",
+        "Twilio", "AC8c81f929b9a4e03c76d853b383d63a1a",
         "3b9ac8c045793aff725ac0a54a5e3864",
         "sk_test_51NsJOgI6hLoGbkjMETqmm36XjI2SK1\
 ajKFFEc94nHxosCQBT6VUSCcrXHbV7ApTsneUb1gGfC1Z6a5uzGX6cKEs900J5wwp41o",
@@ -84,19 +88,19 @@ ajKFFEc94nHxosCQBT6VUSCcrXHbV7ApTsneUb1gGfC1Z6a5uzGX6cKEs900J5wwp41o",
     return 'Restaurant Added'
 
 # --- Route to have a successful stripe payment
-@application.route('/payment_successful')
-def payment_successful():
-    # ---> Getting order id and restaurant id to pass in the Send
-    # ---> Order to clover function of order module
-    order_id = request.args.get('order_id')
-    res_id = request.args.get('res_id')
-    payment_id = request.args.get('bill_id')
-    try:
-        send_order_to_clover(order_id, res_id)
-        add_payment_callback(order_id, payment_id, "Payment Successful")
-    except Exception as e:
-        add_payment_callback(order_id, payment_id, "Payment Successful but "+str(e))
-    return render_template('success.html')
+# @application.route('/payment_successful')
+# def payment_successful():
+#     # ---> Getting order id and restaurant id to pass in the Send
+#     # ---> Order to clover function of order module
+#     order_id = request.args.get('order_id')
+#     res_id = request.args.get('res_id')
+#     payment_id = request.args.get('bill_id')
+#     try:
+#         send_order_to_clover(order_id, res_id)
+#         add_payment_callback(order_id, payment_id, "Payment Successful")
+#     except Exception as e:
+#         add_payment_callback(order_id, payment_id, "Payment Successful but "+str(e))
+#     return render_template('success.html')
 
 
 # --- Route to have a failed stripe payment
@@ -192,7 +196,6 @@ def voice():
             welcome_message, status_code = conversation(first_user_query)
 
             reply = welcome_message
-            print('reply -- ', reply)
             set_session_attribute('first_message', False)
         elif not get_session_attribute('first_message'):
             # ---> Get the speech recognition result
@@ -242,29 +245,26 @@ def voice():
 @application.route("/place_order", methods=['POST'])
 def place_order():
     # ---> Once order is successfully placed bot says below statement
-    response = VoiceResponse()
-    response.say(
-        "Your order has been placed successfully. You will receive a payment link via SMS. Your order will be ready in 15 to 20 minutes after payment should be done. Thank you for your business.")
-    response.hangup()
-
     # ---> Getting order in json format using order_query of order module
     history = get_session_attribute('user_mes')
-    id = get_session_attribute('session_id')
-    from_ = get_session_attribute('to_number')
-    to_ = get_session_attribute('from_number')
+    session_id = get_session_attribute('session_id')
+    from_ = get_session_attribute('from_number')
+    to_ = get_session_attribute('to_number')
 
-    def send_to_stripe(session_id, from_number, to_number, history):
-        with application.test_request_context():
-            send_stripe_payment_message(session_id, from_number, to_number, history)
+    order_id = persist_customer_order_conversation(history, from_, to_)
+    print('persisted customer, order and conversation to database')
 
-    # ---> Sending payment message to customer
-    thread = threading.Thread(
-        target=send_to_stripe,
-        args=(
-            id, from_, to_, history
-        )
-    )
-    thread.start()
+    print('Sending the order to clover, order_id=', order_id)
+    print('restaurant id=', get_restaurants(to_).id)
+    print('is_test_mode=', is_test_mode)
+    send_order_to_pos(order_id, get_restaurants(to_).id, is_test_mode)
+    print('Order successfully sent to POS')
+
+    response = VoiceResponse()
+    response.say(
+        "Your order has been placed successfully. Your order will be ready in 15 to 20 minutes and you can pay at the restaurant. Thank you for your business.")
+    response.hangup()
+
     end_session()
     return str(response)
 

@@ -6,6 +6,10 @@ from db_persisters.restaurant_system_configuration import \
     get_restaurants_configuration
 from db_persisters.restaurants import get_restaurants
 from db_persisters.customer import get_customers_by_id
+from db_persisters.orders import add_order
+from db_persisters.customer import add_customer
+from db_persisters.restaurants import get_restaurants
+from db_persisters.conversation import add_conversation, Make_conversation_template
 import base64
 import rsa
 from database import privateKey
@@ -76,7 +80,7 @@ def extract_order_json(input_string):
     return order_json_1
 
 
-def gettaxrate(restaurant_number):
+def get_tax_rate(restaurant_number):
     res = get_restaurants(restaurant_number)
     res_config = get_restaurants_configuration(res.id)
     baseURL = rsa.decrypt(
@@ -90,8 +94,8 @@ def gettaxrate(restaurant_number):
         'Content-type': 'application/json',
         "authorization": f'Bearer {auth}'
     }
-    #TODO - Y4JM6PA9ZM58W to be replaced from the dynamic configuration
-    url = baseURL + "tax_rates/Y4JM6PA9ZM58W"
+    #TODO - to be replaced from the dynamic configuration
+    url = baseURL + "tax_rates/N4XN9PJCV8460"
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         res = json.loads(response.text)
@@ -101,23 +105,31 @@ def gettaxrate(restaurant_number):
 
 
 # --- A function to create an order on the clover
-def createOrder(baseURL, headers, customer_name):
+def create_order(baseURL, headers, customer_name, is_test_mode):
     url = baseURL + 'orders'
+    note = ''
+    testMode = 'false'
+    if(is_test_mode):
+        note = 'A Test Order'
+        testMode = 'true'
+    #TODO - Change this when deploying, enhancement to do these configurations at one place
     payload = {
-        "paymentState": "PAID",
-        "customers": [{"firstName": customer_name}]
+        "paymentState": "OPEN",
+        "customers": [{"firstName": customer_name}],
+        "note": note
+        #,testMode
     }
     r = requests.post(url, json=payload, headers=headers)
     if r.status_code == 200:
+        print('Order sent to Clover successfully', r.json())
         return r.json()
     else:
-        print(r)
         raise Exception("Base Order failed to be created in POS")
-
+        print(r)
 
 
 # --- A function to an item in the order that is already created
-def addLineItem(order, item, myitem, baseURL, headers):
+def add_line_item(order, item, myitem, baseURL, headers):
     url = baseURL+'orders/'+order['id']+'/line_items'
     data = {
             'item': {'id': myitem['id']},
@@ -143,7 +155,7 @@ def addLineItem(order, item, myitem, baseURL, headers):
 
 
 # --- A function to set the state to open so it will be viewed on clover dashboard
-def openOrder(order, baseURL, headers):
+def open_order(order, baseURL, headers):
     url = baseURL + 'orders/' + order['id']
     data = {'state': 'open'}
     r = requests.post(url, data=json.dumps(data), headers=headers)
@@ -153,44 +165,8 @@ def openOrder(order, baseURL, headers):
         print(r)
 
 
-# --- A function to createPayment or Order
-def createPayment(order, baseURL, headers, amount):
-    url = baseURL + 'orders/' + order['id'] + "/payments"
-    #TODO - Replace XVEZXVCJ38V8E to fetch dynamically
-    payload = {
-        "order": { "id": order['id'] },
-        "tender": { "id": "XVEZXVCJ38V8E" },
-        "offline": "false",
-        "transactionSettings": {
-            "disableCashBack": "false",
-            "cloverShouldHandleReceipts": "true",
-            "forcePinEntryOnSwipe": "false",
-            "disableRestartTransactionOnFailure": "false",
-            "allowOfflinePayment": "false",
-            "approveOfflinePaymentWithoutPrompt": "false",
-            "forceOfflinePayment": "false",
-            "disableReceiptSelection": "false",
-            "disableDuplicateCheck": "false",
-            "autoAcceptPaymentConfirmations": "false",
-            "autoAcceptSignature": "false",
-            "returnResultOnTransactionComplete": "false",
-            "disableCreditSurcharge": "false"
-        },
-        "transactionInfo": {
-            "isTokenBasedTx": "false",
-            "emergencyFlag": "false"
-        },
-        "amount": amount
-    }
-    r = requests.post(url, data=json.dumps(payload), headers=headers)
-    if r.status_code == 200:
-        return r.json()
-    else:
-        print(r)
-
-
 # --- A function to get the order using the order id to confirm it is successfully placed
-def getOrder(order, baseURL, headers):
+def get_order(order, baseURL, headers):
     url = baseURL + 'orders/' + order['id'] + '?expand=payments'
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
@@ -200,8 +176,42 @@ def getOrder(order, baseURL, headers):
 
 
 # --- A function to retrieve order from the database and add it to clover once payment is successful
-def send_order_to_clover(order_id, res_id):
-     # ---> Getting restaurant bot information from database using restaurant bot id
+def persist_customer_order_conversation(history, from_number, to_number):
+    order_id = None
+    try:
+        Conversation_template = Make_conversation_template(history)
+        order, status_code = order_query(history)
+        tax_rate = get_tax_rate(to_number)
+        tax_rate_percentage = tax_rate/100000
+        # ---> Calculating tax on order
+        price = order['total_price']
+        nm_price = ''.join(c for c in price if c.isdigit() or c == '.')
+        sales_tax = (float(tax_rate_percentage) / float(100)) * float(nm_price)
+        total_price_with_tax = float(nm_price) + float(sales_tax)
+        total_price_with_tax = round(total_price_with_tax, 2)
+        # ---> Getting restaurant id
+        res = get_restaurants(to_number)
+        # ---> Adding the customer in the database
+        customer_id = add_customer(res.id, order['customer_name'], from_number)
+        # ---> Adding the customer order in the database using below
+        # ---> function of order package. It returns bot id and order id
+        order['total_price_with_tax'] = total_price_with_tax
+        order_id = add_order(
+            res.id, customer_id,
+            order, order['total_price'],
+            sales_tax,
+            total_price_with_tax
+        )
+        # ---> Adding the customer in the database
+        conversation_id = add_conversation(res.id, customer_id, Conversation_template)
+    except Exception as e:
+        print('Exception', e)
+        message_body = 'Error in sending order to Clover'
+    return order_id
+
+
+def send_order_to_pos(order_id, res_id, is_test_mode):
+    # ---> Getting restaurant bot information from database using restaurant bot id
     res_config = get_restaurants_configuration(res_id)
     # ---> Getting order information from database using order id
     current_order = get_order_by_order_id(order_id)
@@ -221,7 +231,7 @@ def send_order_to_clover(order_id, res_id):
     }
     # ---> Create order and grab order ID
     customer = get_customers_by_id(current_order.customer_id)
-    order = createOrder(baseURL, headers, customer.customer_name)
+    order = create_order(baseURL, headers, customer.customer_name, is_test_mode)
     data_items = json_order['order']
     for item in data_items:
         for i in range(int(item['item_quantity'])):
@@ -232,14 +242,11 @@ def send_order_to_clover(order_id, res_id):
                 headers=headers
             ).json()
             # ---> Then Add it in the order which is just created
-            addLineItem(order, item, myItem, baseURL, headers)
+            add_line_item(order, item, myItem, baseURL, headers)
     # ---> Open the order so its visible on other devices
-    openOrder(order, baseURL, headers)
-    createPayment(
-        order, baseURL, headers,
-        int(float(current_order.total_price)*100)
-    )
+    open_order(order, baseURL, headers)
+
     # ---> Getting Order
-    print(getOrder(order, baseURL, headers))
+    print(get_order(order, baseURL, headers))
 
     return "Success"
