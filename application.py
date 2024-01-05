@@ -3,8 +3,9 @@ from database import db
 from flask import Flask, request, session, render_template
 from flask_session import Session
 from flask_cors import CORS
+import threading
 from menu_service import fetch_remote_menu, persist_menu, load_menu
-from order_without_payment import persist_customer_order_conversation, send_order_to_pos
+from order_without_payment import persist_and_send_order_to_pos, send_order_to_pos
 from prompt_service import create_prompt_data
 from session_manager import create_session, set_session_attribute, \
     get_session_attribute, delete_session_attribute
@@ -245,27 +246,30 @@ def voice():
 @application.route("/place_order", methods=['POST'])
 def place_order():
     # ---> Once order is successfully placed bot says below statement
+    response = VoiceResponse()
+    response.say(
+        "Your order has been placed successfully. Your order will be ready in 20-30 minutes and you can pay at the restaurant. Thank you for your business.")
+    response.hangup()
     # ---> Getting order in json format using order_query of order module
     history = get_session_attribute('user_mes')
-    session_id = get_session_attribute('session_id')
     from_ = get_session_attribute('from_number')
     to_ = get_session_attribute('to_number')
 
-    order_id = persist_customer_order_conversation(history, from_, to_)
-    print('persisted customer, order and conversation to database')
+    def local_persist_and_send_order_to_pos(local_history, local_from, local_to, local_is_test_mode):
+        with application.test_request_context():
+            persist_and_send_order_to_pos(local_history, local_from, local_to, local_is_test_mode)
 
-    print('Sending the order to clover, order_id=', order_id)
-    print('restaurant id=', get_restaurants(to_).id)
-    print('is_test_mode=', is_test_mode)
-    send_order_to_pos(order_id, get_restaurants(to_).id, is_test_mode)
-    print('Order successfully sent to POS')
-
-    response = VoiceResponse()
-    response.say(
-        "Your order has been placed successfully. Your order will be ready in 15 to 20 minutes and you can pay at the restaurant. Thank you for your business.")
-    response.hangup()
-
+    # ---> Sending payment message to customer
+    thread = threading.Thread(
+        target=local_persist_and_send_order_to_pos,
+        args=(
+            history, from_, to_, is_test_mode
+        )
+    )
+    thread.start()
     end_session()
+
+    print('Finally session ended')
     return str(response)
 
 

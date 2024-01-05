@@ -39,7 +39,7 @@ def order_query(history):
             "total_price" : "total price of order"
     }
     </JSON OBJECT>
-    Don't skip this format and any of the tags provide along with the brackets. You have to strickly follow the format. Use the current order information to return the order.
+    Don't skip this format and any of the tags provide along with the brackets. You have to strictly follow the format. Use the current order information to return the order.
     """
     # ---> Calling conversation function of chat_gpt_service module
     user_query = Order_Query + ' (refer to context)'
@@ -176,7 +176,7 @@ def get_order(order, baseURL, headers):
 
 
 # --- A function to retrieve order from the database and add it to clover once payment is successful
-def persist_customer_order_conversation(history, from_number, to_number):
+def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode):
     order_id = None
     try:
         Conversation_template = Make_conversation_template(history)
@@ -204,9 +204,11 @@ def persist_customer_order_conversation(history, from_number, to_number):
         )
         # ---> Adding the customer in the database
         conversation_id = add_conversation(res.id, customer_id, Conversation_template)
+
+        send_order_to_pos(order_id, res.id, is_test_mode)
     except Exception as e:
         print('Exception', e)
-        message_body = 'Error in sending order to Clover'
+        message_body = 'Error in sending order to POS'
     return order_id
 
 
