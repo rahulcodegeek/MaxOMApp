@@ -101,7 +101,7 @@ def get_tax_rate(restaurant_number):
         res = json.loads(response.text)
         return res['rate']
     else:
-        print(response)
+        print(response.json())
 
 
 # --- A function to create an order on the clover
@@ -115,8 +115,7 @@ def create_order(baseURL, headers, customer_name, is_test_mode):
     #TODO - Change this when deploying, enhancement to do these configurations at one place
     payload = {
         "paymentState": "OPEN",
-        "customers": [{"firstName": customer_name}],
-        "note": note
+        "note": note+"\nCustomer Name: "+customer_name
         #,testMode
     }
     r = requests.post(url, json=payload, headers=headers)
@@ -125,32 +124,35 @@ def create_order(baseURL, headers, customer_name, is_test_mode):
         return r.json()
     else:
         raise Exception("Base Order failed to be created in POS")
-        print(r)
 
 
 # --- A function to an item in the order that is already created
 def add_line_item(order, item, myitem, baseURL, headers):
     url = baseURL+'orders/'+order['id']+'/line_items'
     data = {
-            'item': {'id': myitem['id']},
-            "modifications": [
-                {
-                    "modifier": {
-                        "available": "true",
-                        "price": "0",
-                        "modifierGroup": {
-                            "id": item['additional_modifier_id']
-                        },
-                        "id": item['modifier_type_id'],
-                        "name": item['modifier_type_name']
-                    }
-                }
-            ]
+            'item': {'id': myitem['id']}
     }
     r = requests.post(url, data=json.dumps(data), headers=headers)
     if r.status_code == 200:
         return r.json()
     else:
+        print("Add line item Error")
+        print(r.json())
+
+
+# --- A function to an item in the order that is already created
+def add_modifier_in_line_item(order, item, inlineId, baseURL, headers):
+    url = baseURL+'orders/'+order['id']+'/line_items/'+ inlineId + "/modifications"
+    data = {
+            "modifier": {
+                "id": item['modifier_type_id']
+            }
+    }
+    r = requests.post(url, data=json.dumps(data), headers=headers)
+    if r.status_code == 200:
+        return r.json()
+    else:
+        print("Add modifier Error")
         print(r.json())
 
 
@@ -162,17 +164,19 @@ def open_order(order, baseURL, headers):
     if r.status_code == 200:
         return r.json()
     else:
-        print(r)
+        print("Open Order Error")
+        print(r.json())
 
 
 # --- A function to get the order using the order id to confirm it is successfully placed
 def get_order(order, baseURL, headers):
-    url = baseURL + 'orders/' + order['id'] + '?expand=payments'
+    url = baseURL + 'orders/' + order['id'] + '?expand=lineItems,lineItems.modifications'
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
         return r.json()
     else:
-        print(r)
+        print("Get Order Error")
+        print(r.json())
 
 
 # --- A function to retrieve order from the database and add it to clover once payment is successful
@@ -207,7 +211,7 @@ def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode)
 
         send_order_to_pos(order_id, res.id, is_test_mode)
     except Exception as e:
-        print('Exception', e)
+        print('Exception ERROR', e)
         message_body = 'Error in sending order to POS'
     return order_id
 
@@ -232,8 +236,8 @@ def send_order_to_pos(order_id, res_id, is_test_mode):
         "authorization": f'Bearer {auth}'
     }
     # ---> Create order and grab order ID
-    customer = get_customers_by_id(current_order.customer_id)
-    order = create_order(baseURL, headers, customer.customer_name, is_test_mode)
+    customer = json_order['customer_name']
+    order = create_order(baseURL, headers, customer, is_test_mode)
     data_items = json_order['order']
     for item in data_items:
         for i in range(int(item['item_quantity'])):
@@ -243,8 +247,10 @@ def send_order_to_pos(order_id, res_id, is_test_mode):
                 baseURL + 'items/' + item['item_id'],
                 headers=headers
             ).json()
+            print()
             # ---> Then Add it in the order which is just created
-            add_line_item(order, item, myItem, baseURL, headers)
+            inlineItem = add_line_item(order, item, myItem, baseURL, headers)
+            add_modifier_in_line_item(order, item, inlineItem['id'], baseURL, headers)
     # ---> Open the order so its visible on other devices
     open_order(order, baseURL, headers)
 

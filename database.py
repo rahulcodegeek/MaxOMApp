@@ -3,16 +3,25 @@ import base64
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 db = SQLAlchemy()
-key, privateKey = rsa.newkeys(2048)
+
+# Read private key from file
+with open('./resources/privateKey.pem', 'rb') as private_key_file:
+    private_key_data = private_key_file.read()
+    privateKey = rsa.PrivateKey.load_pkcs1(private_key_data)
+
+# Read public key from file
+with open('./resources/publicKey.pem', 'rb') as public_key_file:
+    public_key_data = public_key_file.read()
+    key = rsa.PublicKey.load_pkcs1(public_key_data)
 
 
-# --- Restaurants table to store restaurants data in the database
+# --- Restuarants table to store restauratns data in the database
 class restaurants(db.Model):
-    # --> Stores the id of restaurant
+    # --> Stores the id of restuarant
     id = db.Column(db.Integer, primary_key=True)
-    # --> Stores the name of the restaurant
+    # --> Stores the name of the restuarant
     name = db.Column(db.String(200), nullable=False)
-    # --> Stores the unique phone number of the restaurant
+    # --> Stores the unique phone number of the restuarant
     phone_number = db.Column(db.String(200), unique=True, nullable=False)
     # --> Stores the redirecting phone number
     redirection_phone_number = db.Column(db.String(100), nullable=False)
@@ -22,8 +31,32 @@ class restaurants(db.Model):
     created_date = db.Column(
         db.DateTime, nullable=False
     )
+    # --> Defining relationship with restaurant audit
+    restaurants_audits = db.relationship(
+        'restaurants_audit_trail', backref='owner'
+    )
+    # --> Defining relationship with restaurant_system_configuration
+    restaurant_system_configurations = db.relationship(
+        'restaurant_system_configuration', backref='owner'
+    )
+    # --> Defining relationship with customer
+    customers = db.relationship(
+        'customer', backref='owner'
+    )
+    # --> Defining relationship with orders
+    res_orders = db.relationship(
+        'orders', backref='owner'
+    )
+    # --> Defining relationship with conversation
+    conversations = db.relationship(
+        'conversation', backref='owner'
+    )
+    # --> Defining relationship with payment_message
+    payment_messages = db.relationship(
+        'payment_message', backref='owner'
+    )
 
-    # ---> Function to initialize a restaurant
+    # ---> Function to initialized an restaurant
     def __init__(self, name, phone_number, redirection_phone_number,
                  information_json):
         self.name = name
@@ -33,15 +66,17 @@ class restaurants(db.Model):
         self.created_date = datetime.utcnow()
 
 
-# --- Restaurants audit trail table to edit original restaurant table
+# --- Restuarants audit trail table to edit original restaurant table
 class restaurants_audit_trail(db.Model):
-    # --> Stores the id of restaurant audit trail
+    # --> Stores the id of restuarant audit trail
     id = db.Column(db.Integer, primary_key=True)
-    # --> Stores the restaurant id with the trail record
-    restaurant_id = db.Column(db.Integer, nullable=False)
-    # --> Stores the name of the restaurant
+    # --> Stores the restuarant id with the trail record
+    restaurant_id = db.Column(
+        db.Integer, db.ForeignKey('restaurants.id'), nullable=False
+    )
+    # --> Stores the name of the restuarant
     name = db.Column(db.String(200), nullable=False)
-    # --> Stores the unique phone number of the restaurant
+    # --> Stores the unique phone number of the restuarant
     phone_number = db.Column(db.String(200), nullable=False)
     # --> Stores the redirecting phone number
     redirection_phone_number = db.Column(db.String(100), nullable=False)
@@ -51,7 +86,7 @@ class restaurants_audit_trail(db.Model):
     created_date = db.Column(
         db.DateTime, nullable=False
     )
-    # ---> Function to initialize a restaurant
+    # ---> Function to initialized an restaurant
     def __init__(self, restaurant_id, name, phone_number,
                  redirection_phone_number, information_json):
         self.restaurant_id = restaurant_id
@@ -62,14 +97,16 @@ class restaurants_audit_trail(db.Model):
         self.created_date = datetime.utcnow()
 
 
-# --- Restaurants System Configuration table to store the configuration
-# --- of restaurants in the database
+# --- Restuarants System Configuration table to store the configuration
+# --- of restuarants in the database
 class restaurant_system_configuration(db.Model):
-    # --> Stores the id of restaurant system configuration
+    # --> Stores the id of restuarant system configuration
     id = db.Column(db.Integer, primary_key=True)
-    # --> Stores the restaurant id associate with configuration
-    restaurant_id = db.Column(db.Integer, unique=True, nullable=False)
-    # --> Stores the point of sale type of the restaurant
+    # --> Stores the restuarant id associate with configuration
+    restaurant_id = db.Column(
+        db.Integer, db.ForeignKey('restaurants.id'), nullable=False
+    )
+    # --> Stores the point of sale type of the restuarant
     pos_type = db.Column(db.String(200), nullable=False)
     # --> Stores the url of the point of sale
     pos_url = db.Column(db.String(1000), nullable=False)
@@ -89,8 +126,12 @@ class restaurant_system_configuration(db.Model):
     created_date = db.Column(
         db.DateTime, nullable=False
     )
+    # --> Defining relationship with restaurant_system_configuration_audit
+    restaurant_system_configurations_audit = db.relationship(
+        'restaurant_system_configuration_audit_trail', backref='owner'
+    )
 
-    # ---> Function to initialize a restaurant system configuration
+    # ---> Function to initialized an restaurant system configuration
     def __init__(self, restaurant_id, pos_type, pos_url,
                  pos_authorization_header, voice_api_type,
                  voice_api_account_sid, voice_api_account_auth_token,
@@ -137,14 +178,17 @@ class restaurant_system_configuration(db.Model):
         self.created_date = datetime.utcnow()
 
 
-# --- Restaurants System Configuration audit table to edit the
-# --- Restaurants System Configuration table
+# --- Restuarants System Configuration audit table to edit the
+# --- Restuarants System Configuration table
 class restaurant_system_configuration_audit_trail (db.Model):
-    # --> Stores the id of restaurant system configuration
+    # --> Stores the id of restuarant system configuration
     id = db.Column(db.Integer, primary_key=True)
-    # --> Stores the restaurant id associate with configuration
-    restaurant_id = db.Column(db.Integer, nullable=False)
-    # --> Stores the point of sale type of the restaurant
+    # --> Stores the restuarant id associate with configuration
+    restaurant__configuration_id = db.Column(
+        db.Integer, db.ForeignKey('restaurant_system_configuration.id'),
+        nullable=False
+    )
+    # --> Stores the point of sale type of the restuarant
     pos_type = db.Column(db.String(200), nullable=False)
     # --> Stores the url of the point of sale
     pos_url = db.Column(db.String(1000), nullable=False)
@@ -165,7 +209,7 @@ class restaurant_system_configuration_audit_trail (db.Model):
         db.DateTime, nullable=False
     )
 
-    # ---> Function to initialize a restaurant system configuration
+    # ---> Function to initialized an restaurant system configuration
     def __init__(self, restaurant_id, pos_type, pos_url,
                  pos_authorization_header, voice_api_type,
                  voice_api_account_sid, voice_api_account_auth_token,
@@ -216,8 +260,10 @@ class restaurant_system_configuration_audit_trail (db.Model):
 class customer(db.Model):
     # --> Stores the id of customer
     id = db.Column(db.Integer, primary_key=True)
-    # --> Stores the restaurant id associate with customer
-    restaurant_id = db.Column(db.Integer, nullable=False)
+    # --> Stores the restuarant id associate with customer
+    restaurant_id = db.Column(
+        db.Integer, db.ForeignKey('restaurants.id'), nullable=False
+    )
     # --> Stores the name of the customer
     customer_name = db.Column(db.String(200), nullable=False)
     # --> Stores the phone number of customer
@@ -241,10 +287,15 @@ class customer(db.Model):
 class orders(db.Model):
     # --> Stores the id of order
     id = db.Column(db.Integer, primary_key=True)
-    # --> Stores the restaurant id associate with order
-    restaurant_id = db.Column(db.Integer, nullable=False)
+    # --> Stores the restuarant id associate with order
+    restaurant_id = db.Column(
+        db.Integer, db.ForeignKey('restaurants.id'), nullable=False
+    )
     # --> Stores the customer id associate with order
-    customer_id = db.Column(db.Integer, nullable=False)
+    customer_id = db.Column(
+        db.Integer, db.ForeignKey('customer.id'),
+        nullable=False
+    )
     # --> Stores the complete order
     order_details = db.Column(db.String(5000), nullable=False)
     # --> Stores the total price of order
@@ -257,8 +308,12 @@ class orders(db.Model):
     created_date = db.Column(
         db.DateTime, nullable=False
     )
+    # --> Defining relationship with payment_callback
+    payment_callback = db.relationship(
+        'payment_callback', backref='owner'
+    )
 
-    # ---> Function to initialize an order
+    # ---> Function to initialized an order
     def __init__(self, restaurant_id, customer_id, order_details,
                  order_price, order_tax, total_price):
         self.restaurant_id = restaurant_id
@@ -274,10 +329,15 @@ class orders(db.Model):
 class conversation(db.Model):
     # --> Stores the id of conversation
     id = db.Column(db.Integer, primary_key=True)
-    # --> Stores the restaurant id associate with customer
-    restaurant_id = db.Column(db.Integer, nullable=False)
+    # --> Stores the restuarant id associate with customer
+    restaurant_id = db.Column(
+        db.Integer, db.ForeignKey('restaurants.id'), nullable=False
+    )
     # --> Stores the customer id associate with order
-    customer_id = db.Column(db.Integer, nullable=False)
+    customer_id = db.Column(
+        db.Integer, db.ForeignKey('customer.id'),
+        nullable=False
+    )
     # --> Stores the conversation
     conversation = db.Column(db.String(10000), nullable=False)
     # --> Stores the creation date
@@ -297,10 +357,15 @@ class conversation(db.Model):
 class payment_message(db.Model):
     # --> Stores the id of payment_message
     id = db.Column(db.Integer, primary_key=True)
-    # --> Stores the restaurant id associate with customer
-    restaurant_id = db.Column(db.Integer, nullable=False)
+    # --> Stores the restuarant id associate with customer
+    restaurant_id = db.Column(
+        db.Integer, db.ForeignKey('restaurants.id'), nullable=False
+    )
     # --> Stores the customer id associate with order
-    customer_id = db.Column(db.Integer, nullable=False)
+    customer_id = db.Column(
+        db.Integer, db.ForeignKey('customer.id'),
+        nullable=False
+    )
     # --> Stores the payment message
     message = db.Column(db.String(1000), nullable=False)
     # --> Stores the logs of message
@@ -319,12 +384,15 @@ class payment_message(db.Model):
         self.created_date = datetime.utcnow()
 
 
-# --- Payment successful Callback table to store the message in the database
+# --- Payment Successfull Callback table to store the message in the database
 class payment_callback(db.Model):
     # --> Stores the id of payment_callback
     id = db.Column(db.Integer, primary_key=True)
     # --> Stores the order id associate with order
-    order_id = db.Column(db.Integer, nullable=False)
+    order_id = db.Column(
+        db.Integer, db.ForeignKey('orders.id'),
+        nullable=False
+    )
     # --> Stores the stripe payment id
     payment_id = db.Column(db.String(1000), nullable=False)
     # --> Stores the logs of payment

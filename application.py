@@ -55,8 +55,8 @@ def get_loaded_menu(restaurant_id):
 
 
 # --- Route to delete the database all tables
-#@application.route('/delete_db_tables')
-#def delete_db_tables():
+# @application.route('/delete_db_tables')
+# def delete_db_tables():
 #    db.drop_all()
 #    return 'Database Tables Deleted'
 
@@ -105,14 +105,14 @@ ajKFFEc94nHxosCQBT6VUSCcrXHbV7ApTsneUb1gGfC1Z6a5uzGX6cKEs900J5wwp41o",
 
 
 # --- Route to have a failed stripe payment
-@application.route('/payment_failed')
-def payment_failed():
-    order_id = request.args.get('order_id')
-    payment_id = request.args.get('bill_id')
-    add_payment_callback(
-        order_id, payment_id, "Payment Unsuccessful"
-    )
-    return render_template('fail.html')
+# @application.route('/payment_failed')
+# def payment_failed():
+#     order_id = request.args.get('order_id')
+#     payment_id = request.args.get('bill_id')
+#     add_payment_callback(
+#         order_id, payment_id, "Payment Unsuccessful"
+#     )
+#     return render_template('fail.html')
 
 
 # --- Route for initializing phone number to restaurant mapper
