@@ -61,7 +61,7 @@ def get_loaded_menu(restaurant_id):
 #    return 'Database Tables Deleted'
 
 #TODO - This will be dynamically configured for each restaurant. Needs to be changed to POST endpoint so,
-# all the details can be passed from the parameters as opposed to hardcoding in the code.
+# all the details can be passed from the parameters as opposed to hard coding in the code.
 # --- Configure the restaurant
 @application.route('/add_restaurant')
 def add_restaurant_database():
