@@ -46,7 +46,7 @@ def order_query(history):
 
     # --> Getting previous conversation
     history.append({"role": "user", "content": user_query})
-    # --> Calling ChatGpt Api and return its reply with status 200 if succesfull other wise return with status 502
+    # --> Calling ChatGpt Api and return its reply with status 200 if successful otherwise return with status 502
     try:
         chat = ChatCompletion.create(model="gpt-4-1106-preview", messages=history)
         reply = chat.choices[0].message.content
@@ -105,7 +105,7 @@ def get_tax_rate(restaurant_number):
 
 
 # --- A function to create an order on the clover
-def create_order(baseURL, headers, customer_name, is_test_mode):
+def create_order(baseURL, headers, customer_name, customer_entry, is_test_mode):
     url = baseURL + 'orders'
     note = ''
     testMode = 'false'
@@ -115,7 +115,7 @@ def create_order(baseURL, headers, customer_name, is_test_mode):
     #TODO - Change this when deploying, enhancement to do these configurations at one place
     payload = {
         "paymentState": "OPEN",
-        "note": note+"\nCustomer Name: "+customer_name
+        "note": note+"\nCustomer Name: "+customer_name+"\nCustomer Phone: "+customer_entry.customer_phone_number
         #,testMode
     }
     r = requests.post(url, json=payload, headers=headers)
@@ -221,6 +221,9 @@ def send_order_to_pos(order_id, res_id, is_test_mode):
     res_config = get_restaurants_configuration(res_id)
     # ---> Getting order information from database using order id
     current_order = get_order_by_order_id(order_id)
+    print('Current order ', current_order)
+    customer_entry = get_customers_by_id(current_order.customer_id)
+
     # ---> Converting string order to json
     json_order = json.loads(current_order.order_details)
     # ---> Getting Clover information from the restaurant bot we extracted
@@ -236,8 +239,9 @@ def send_order_to_pos(order_id, res_id, is_test_mode):
         "authorization": f'Bearer {auth}'
     }
     # ---> Create order and grab order ID
-    customer = json_order['customer_name']
-    order = create_order(baseURL, headers, customer, is_test_mode)
+    customer_name = json_order['customer_name'] # This customer name could be sometimes different from the one stored in the customer table
+    #Example if same phone numer is being used by husband and wife to place the order..
+    order = create_order(baseURL, headers, customer_name, customer_entry, is_test_mode)
     data_items = json_order['order']
     for item in data_items:
         for i in range(int(item['item_quantity'])):
