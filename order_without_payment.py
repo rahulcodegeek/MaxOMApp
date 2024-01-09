@@ -9,6 +9,7 @@ from db_persisters.customer import get_customers_by_id
 from db_persisters.orders import add_order
 from db_persisters.customer import add_customer
 from db_persisters.restaurants import get_restaurants
+from db_persisters.pos_order import add_pos_order
 from db_persisters.conversation import add_conversation, Make_conversation_template
 import base64
 import rsa
@@ -156,6 +157,21 @@ def add_modifier_in_line_item(order, item, inlineId, baseURL, headers):
         print(r.json())
 
 
+# --- A function to print event
+def print_event(clover_order_id, baseURL, headers):
+    url = baseURL + 'print_event'
+    payload = { 
+        "orderRef": {
+            "id": clover_order_id
+        }
+    }
+    r = requests.post(url, json=payload, headers=headers)
+    if r.status_code == 200:
+        return r.status_code
+    else:
+        return r.status_code
+
+
 # --- A function to set the state to open so it will be viewed on clover dashboard
 def open_order(order, baseURL, headers):
     url = baseURL + 'orders/' + order['id']
@@ -259,6 +275,11 @@ def send_order_to_pos(order_id, res_id, is_test_mode):
     open_order(order, baseURL, headers)
 
     # ---> Getting Order
-    print(get_order(order, baseURL, headers))
+    clover_order = get_order(order, baseURL, headers)
+    print(clover_order)
+    clover_order_id = clover_order['id']
+    print("Clover Order ID is ", clover_order_id)
+    print_status = print_event(clover_order_id, baseURL, headers)
+    add_pos_order(order_id, clover_order_id, print_status)
 
     return "Success"

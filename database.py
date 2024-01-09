@@ -407,3 +407,28 @@ class payment_callback(db.Model):
         self.payment_id = payment_id
         self.logs = logs
         self.created_date = datetime.now(timezone.utc)
+
+
+# --- Pos Order table to store the message in the database
+class pos_order(db.Model):
+    # --> Stores the id of payment_callback
+    id = db.Column(db.Integer, primary_key=True)
+    # --> Stores the order id associate with order
+    order_id = db.Column(
+        db.Integer, db.ForeignKey('order_info.id'),
+        nullable=False
+    )
+    # --> Stores the clover order id
+    clover_order_id = db.Column(db.String(1000), nullable=False)
+    # --> Stores the logs of payment
+    print_status = db.Column(db.String(1000), nullable=False)
+    # --> Stores the creation date
+    created_date = db.Column(
+        db.DateTime, nullable=False
+    )
+
+    def __init__(self, order_id, clover_order_id, print_status):
+        self.order_id = order_id
+        self.clover_order_id = clover_order_id
+        self.print_status = print_status
+        self.created_date = datetime.now(timezone.utc)
