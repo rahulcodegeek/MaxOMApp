@@ -63,33 +63,28 @@ def get_loaded_menu(restaurant_id):
 #TODO - This will be dynamically configured for each restaurant. Needs to be changed to POST endpoint so,
 # all the details can be passed from the parameters as opposed to hard coding in the code.
 # --- Configure the restaurant
-@application.route('/add_restaurant', methods=['POST'])
+@application.route('/add_restaurant')
 def add_restaurant_database():
-    data = request.json
-    restaurant_name = data['restaurant_name']
-    restaurant_number = data['restaurant_number']
-    redirecting_number = data['redirecting_number']
-    restaurant_information = data['restaurant_information']
-    pos_type = data['pos_type']
-    pos_url = data['pos_url']
-    pos_authorization_header = data['pos_authorization_header']
-    voice_api_type = data['voice_api_type']
-    voice_api_account_sid = data['voice_api_account_sid']
-    voice_api_account_auth_token = data['voice_api_account_auth_token']
-    payment_api_key = data['payment_api_key']
-    payment_secret = data['payment_secret']
     print('Adding restaurant to configuration...')
+    info_json = {
+        "timings": "Monday and Tuesday from 4PM to 12AM and Wednesday through Friday from 11AM to 1AM",
+        "representative_name": "Amy",
+        "address": "280 E 12300 S, Suite 110, Draper, UT",
+        "today_special": "Goat Sukka"
+    }
     phone_number = add_restaurant(
-        restaurant_name, restaurant_number,
-        redirecting_number, restaurant_information
+        "Paradise Biryani Point", "+18016181119", "+18018789557", info_json
     )
     res = get_restaurants(phone_number)
     add_restaurant_configuration(
-        res.id, pos_type, pos_url, pos_authorization_header,
-        voice_api_type, voice_api_account_sid, voice_api_account_auth_token,
-        payment_api_key, payment_secret
-    )
-    initialize_application_menu(phone_number)
+        res.id, "Clover",
+        "https://api.clover.com/v3/merchants/WXZMNJ4CMQ7C1/",
+        "ff7cecee-cd4b-faf1-2c7a-24ff6638d89c",
+        "Twilio", "AC8c81f929b9a4e03c76d853b383d63a1a",
+        "3b9ac8c045793aff725ac0a54a5e3864",
+        "sk_test_51NsJOgI6hLoGbkjMETqmm36XjI2SK1\
+ajKFFEc94nHxosCQBT6VUSCcrXHbV7ApTsneUb1gGfC1Z6a5uzGX6cKEs900J5wwp41o",
+        "Stripe_payment_secret_key")
     print('Restaurant configuration Added')
     return 'Restaurant Added'
 
@@ -193,7 +188,7 @@ def voice():
             speechTimeout="auto", timeout=7,
             language='en-IN', enhanced="true",
             speechModel="phone_call",
-            hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala"
+            hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala, Goat Sukka"
         )
         if get_session_attribute('first_message') and status_code == 200:
             # ---> First Hard code Query
@@ -241,10 +236,22 @@ def voice():
                 speechTimeout="auto",
                 language='en-IN', enhanced="true",
                 speechModel="phone_call",
-                hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala"
+                hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala, Goat Sukka"
             )
 
     return str(response)
+
+@application.route("/voice_error_handler", methods=['POST'])
+def voice_error_handler():
+    response = VoiceResponse()
+    response.say(
+        "We apologize an application issue has occurred at our side. I am redirecting your call to a real agent. Thank you for your business.")
+    restaurant_phone_number = request.form['To']
+    agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
+    response.dial(agent_number)
+    return str(response)
+
+
 
 
 # --- Route to place the order

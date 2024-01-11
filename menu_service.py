@@ -199,7 +199,6 @@ def persist_menu(restaurant_id, fetched_menu):
         # exclusion rule to skip the items if they are not needed in the menu
         if (any(each_fetched_menu_item["name"] in exclusion_match for exclusion_match in
                 item_names_to_exclude_from_final_menu)):
-            print('found in exclusion list', each_fetched_menu_item["name"])
             continue
         # if passed the exclusion filter keep on processing the rest
 
