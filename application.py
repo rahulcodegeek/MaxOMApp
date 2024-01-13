@@ -60,31 +60,33 @@ def get_loaded_menu(restaurant_id):
 #    db.drop_all()
 #    return 'Database Tables Deleted'
 
-#TODO - This will be dynamically configured for each restaurant. Needs to be changed to POST endpoint so,
-# all the details can be passed from the parameters as opposed to hard coding in the code.
-# --- Configure the restaurant
-@application.route('/add_restaurant')
+@application.route('/add_restaurant', methods=['POST'])
 def add_restaurant_database():
+    data = request.json
+    restaurant_name = data['restaurant_name']
+    restaurant_number = data['restaurant_number']
+    redirecting_number = data['redirecting_number']
+    restaurant_information = data['restaurant_information']
+    pos_type = data['pos_type']
+    pos_url = data['pos_url']
+    pos_authorization_header = data['pos_authorization_header']
+    voice_api_type = data['voice_api_type']
+    voice_api_account_sid = data['voice_api_account_sid']
+    voice_api_account_auth_token = data['voice_api_account_auth_token']
+    payment_api_key = data['payment_api_key']
+    payment_secret = data['payment_secret']
     print('Adding restaurant to configuration...')
-    info_json = {
-        "timings": "Monday and Tuesday from 4PM to 12AM and Wednesday through Friday from 11AM to 1AM",
-        "representative_name": "Amy",
-        "address": "280 E 12300 S, Suite 110, Draper, UT",
-        "today_special": "Goat Sukka"
-    }
     phone_number = add_restaurant(
-        "Paradise Biryani Point", "+18016181119", "+18018789557", info_json
+        restaurant_name, restaurant_number,
+        redirecting_number, restaurant_information
     )
     res = get_restaurants(phone_number)
     add_restaurant_configuration(
-        res.id, "Clover",
-        "https://api.clover.com/v3/merchants/WXZMNJ4CMQ7C1/",
-        "ff7cecee-cd4b-faf1-2c7a-24ff6638d89c",
-        "Twilio", "AC8c81f929b9a4e03c76d853b383d63a1a",
-        "3b9ac8c045793aff725ac0a54a5e3864",
-        "sk_test_51NsJOgI6hLoGbkjMETqmm36XjI2SK1\
-ajKFFEc94nHxosCQBT6VUSCcrXHbV7ApTsneUb1gGfC1Z6a5uzGX6cKEs900J5wwp41o",
-        "Stripe_payment_secret_key")
+        res.id, pos_type, pos_url, pos_authorization_header,
+        voice_api_type, voice_api_account_sid, voice_api_account_auth_token,
+        payment_api_key, payment_secret
+    )
+    initialize_application_menu(phone_number)
     print('Restaurant configuration Added')
     return 'Restaurant Added'
 
