@@ -26,7 +26,7 @@ CORS(application)
 # --- Enable database
 #TODO - change or revisit the following two variables for every deployment
 #database_url = "mysql+pymysql://admin:voicebot@restuarantdatabase.cwr0mrljgsss.eu-west-1.rds.amazonaws.com:3306/restaurantvoicebot"
-database_url = "mysql+pymysql://admin:maxom123@awseb-e-bnhmmiuyik-stack-awsebrdsdatabase-sa2afammopw5.cs0btkh5jqy1.us-west-2.rds.amazonaws.com:3306/restaurantvoicebot"
+database_url = "mysql+pymysql://admin:maxom123@awseb-e-4m68bme65w-stack-awsebrdsdatabase-uvdqhoxx5vij.cs0btkh5jqy1.us-west-2.rds.amazonaws.com:3306/restaurantvoicebot"
 is_test_mode = False
 
 # database_url = 'mysql://root:''@localhost:3308/restaurant'
