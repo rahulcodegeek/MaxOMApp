@@ -26,8 +26,8 @@ CORS(application)
 # --- Enable database
 #TODO - change or revisit the following two variables for every deployment
 #database_url = "mysql+pymysql://admin:voicebot@restuarantdatabase.cwr0mrljgsss.eu-west-1.rds.amazonaws.com:3306/restaurantvoicebot"
-database_url = "mysql+pymysql://admin:maxom123@awseb-e-4m68bme65w-stack-awsebrdsdatabase-uvdqhoxx5vij.cs0btkh5jqy1.us-west-2.rds.amazonaws.com:3306/restaurantvoicebot"
-is_test_mode = True
+database_url = "mysql+pymysql://admin:maxom123@awseb-e-bnhmmiuyik-stack-awsebrdsdatabase-sa2afammopw5.cs0btkh5jqy1.us-west-2.rds.amazonaws.com:3306/restaurantvoicebot"
+is_test_mode = False
 
 # database_url = 'mysql://root:''@localhost:3308/restaurant'
 application.config["SQLALCHEMY_DATABASE_URI"] = database_url
@@ -39,7 +39,7 @@ db.init_app(application)
 # --- Home Route
 @application.route('/')
 def hello_maxom():
-    return 'Hello from MaxOM On 12/29/23 01'
+    return 'Hello from MaxOM On 1/14/24 01'
 
 
 # --- Route to create the database tables which is defined in database file

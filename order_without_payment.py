@@ -29,8 +29,8 @@ def order_query(history):
                         "item_price" : 'price (price of the item from the provided menu)',
                         "item_id" : 'id (id of the specific item from the context)',
                         "item_quantity" : 'quantity',
-                        "additional_modifier_name": "addtional modifier name (name of the specific additional modifier if selected item have from the context)"
-                        "additional_modifier_id": "addtional modifier id (id of the specific additional modifier if selected item have from the context)"
+                        "additional_modifier_name": "additional modifier name (name of the specific additional modifier if selected item have from the context)"
+                        "additional_modifier_id": "additional modifier id (id of the specific additional modifier if selected item have from the context)"
                         "modifier_type_name": "modifier type name (name of the specific modifier type user selected if selected item have modifier from the context)"
                         "modifier_type_id": "modifier type id (id of the specific modifier type user selected if selected item have modifier from the context)"
                         }
@@ -63,7 +63,7 @@ def order_query(history):
 
 # --- A function that extract the order json object from the string 
 def extract_order_json(input_string):
-    # ---> Extracing the Json from our order repeat string
+    # ---> Extracting the Json from our order repeat string
     order_string = input_string
     # ---> Find the start and end indices of the JSON object within the string
     while True:
@@ -113,6 +113,10 @@ def create_order(baseURL, headers, customer_name, customer_entry, is_test_mode):
     if(is_test_mode):
         note = 'A Test Order'
         testMode = 'true'
+    else:
+        note = 'MaxOM Order'
+        testMode = 'false'
+
     #TODO - Change this when deploying, enhancement to do these configurations at one place
     payload = {
         "paymentState": "OPEN",
