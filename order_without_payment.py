@@ -190,7 +190,7 @@ def open_order(order, baseURL, headers):
 
 # --- A function to get the order using the order id to confirm it is successfully placed
 def get_order(order, baseURL, headers):
-    url = baseURL + 'orders/' + order['id'] + '?expand=lineItems,lineItems.modifications'
+    url = baseURL + 'orders/' + order['id'] + '?expand=lineItems,lineItems.modifications,discounts'
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
         return r.json()
