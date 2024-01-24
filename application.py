@@ -175,13 +175,15 @@ def voice():
         prompt_data, status_code = create_prompt_data(restaurant_phone_number)
         # ---> In case there is an error so say that otherwise will overwrite in the next if condition
         print('status_code returned from create_prompt_data is', status_code)
+        print('create_prompt_data completed for session_id', get_session_attribute('session_id'))
+        print('create_prompt_data completed for from_number', get_session_attribute('from_number'))
 
         reply = prompt_data
         history = [{"role": "assistant", "content": prompt_data}]
         set_session_attribute('user_mes', history)
-        print('session_id is not in session, so have set it for the first time')
     if get_session_attribute('order') == "Confirm":
-        print('Confirming the order...')
+        print('Confirming the order for session_id...', get_session_attribute('session_id'))
+        print('Confirming the order for from_number', get_session_attribute('from_number'))
         response.redirect('/place_order')
     else:
         gather = response.gather(
@@ -205,7 +207,8 @@ def voice():
             if "Digits" in request.values:
                 choice = request.values['Digits']
                 if choice == '9':
-                    print('choice 9 detected')
+                    print('choice 9 detected for session_id', get_session_attribute('session_id'))
+                    print('choice 9 detected for from_number', get_session_attribute('from_number'))
                     gather.say("I am connecting you to the actual agent.")
                     gather.say("Kindly wait while i am connecting you.")
                     agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number

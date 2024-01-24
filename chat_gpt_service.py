@@ -26,6 +26,7 @@ def chat_gpt_query(user_query):
 
     user_query = user_query + ' (refer to context)'
     print('user_query for chat is ', user_query)
+    print('user_query is for session_id', get_session_attribute('session_id'))
     # --> Getting previous conversation
     history = get_session_attribute('user_mes')
     history.append({"role": "user", "content": user_query})
@@ -37,6 +38,7 @@ def chat_gpt_query(user_query):
         #chat = ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=get_session_attribute('user_mes'))
         reply = chat.choices[0].message.content
         print('reply from chat is ', reply)
+        print('reply is for session_id', get_session_attribute('session_id'))
         status = 200
     except OpenAIError as e:
         print(e)
