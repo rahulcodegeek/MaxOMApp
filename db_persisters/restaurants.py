@@ -1,18 +1,18 @@
-from database import db, restaurants
+from database import db, restaurant
 from db_persisters.restaurants_audit_trail import add_restaurant_audit_trail
 import json
 
 
 # --- Function to get the restaurant using number
 def get_restaurants(number):
-    restaurant = restaurants.query.filter_by(phone_number=number).first()
-    return restaurant
+    restaurant_entry = restaurant.query.filter_by(phone_number=number).first()
+    return restaurant_entry
 
 
 # --- Function to get the restaurant using restaurant id
 def get_restaurants_by_id(res_id):
-    restaurant = restaurants.query.filter_by(id=res_id).first()
-    return restaurant
+    restaurant_entry =  restaurant.query.filter_by(id=res_id).first()
+    return restaurant_entry
 
 
 # --- Function to add the restaurant in the database
@@ -22,7 +22,7 @@ def add_restaurant(name, phone_number, redirection_phone_number,
     if not existing_res:
         information_string = json.dumps(information_json)
         # ---> Initializing a new order
-        new_restaurant = restaurants(
+        new_restaurant = restaurant(
             name, phone_number,
             redirection_phone_number,
             information_string,

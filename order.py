@@ -112,6 +112,8 @@ def createOrder(baseURL, headers, customer_name):
         return r.json()
     else:
         print(r)
+        raise Exception("Base Order failed to be created in POS")
+
 
 
 # --- A function to an item in the order that is already created
