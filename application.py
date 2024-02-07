@@ -13,6 +13,7 @@ from twilio.twiml.voice_response import VoiceResponse
 from db_persisters.restaurants import add_restaurant, get_restaurants
 from db_persisters.restaurant_system_configuration import add_restaurant_configuration
 from db_persisters.payment_callback import add_payment_callback
+from fillers_information import get_randomly_filler_sentence, get_randomly_question_filler_sentence
 
 application = Flask(__name__)
 # You can choose a different session type if needed
@@ -163,6 +164,7 @@ def voice():
     reply = ''
     prompt_data = ''
     response = VoiceResponse()
+
     # ---> Initiate the session if not already initialized
     if 'session_id' not in session:
         print('session_id is not in session, so setting it first time')
@@ -187,7 +189,7 @@ def voice():
         response.redirect('/place_order')
     else:
         gather = response.gather(
-            action="/voice", method="POST",
+            action="/filler", method="POST",
             input="speech dtmf", numDigits="1",
             speechTimeout="auto", timeout=7,
             language='en-IN', enhanced="true",
@@ -204,29 +206,20 @@ def voice():
             set_session_attribute('first_message', False)
         elif not get_session_attribute('first_message'):
             # ---> Get the speech recognition result
-            if "Digits" in request.values:
-                choice = request.values['Digits']
-                if choice == '9':
-                    print('choice 9 detected for session_id', get_session_attribute('session_id'))
-                    print('choice 9 detected for from_number', get_session_attribute('from_number'))
-                    gather.say("I am connecting you to the actual agent.")
-                    gather.say("Kindly wait while i am connecting you.")
-                    agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
-                    response.dial(agent_number)
-            else:
-                speech_result = request.form['SpeechResult']
-                if speech_result:
-                    user_query = speech_result
-                    reply, status_code = conversation(user_query)
-                    # If <PLACE_ORDER_AND_END_CALL> is set then, it means the order is to be placed and conversation has to be ended.
-                    if '<PLACE_ORDER_AND_END_CALL>' in reply:
-                        history = get_session_attribute('user_mes')
-                        set_session_attribute('history', history)
-                        reply = reply.replace('<PLACE_ORDER_AND_END_CALL>', '')
-                        set_session_attribute('order', "Confirm")
-                        response.redirect('/place_order')
+            if get_session_attribute('speech') != "":
+                user_query = get_session_attribute('speech')
+                reply, status_code = conversation(user_query)
+                set_session_attribute("speech","")
+                # If <PLACE_ORDER_AND_END_CALL> is set then, it means the order is to be placed and conversation has to be ended.
+                if '<PLACE_ORDER_AND_END_CALL>' in reply:
+                    history = get_session_attribute('user_mes')
+                    set_session_attribute('history', history)
+                    reply = reply.replace('<PLACE_ORDER_AND_END_CALL>', '')
+                    set_session_attribute('order', "Confirm")
+                    response.redirect('/place_order')
         if status_code != 200:
-            gather.say(reply)
+            gather.say("I am connecting you to the actual agent.")
+            gather.say("Kindly wait while i am connecting you.")
             agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
             response.dial(agent_number)
         else:
@@ -236,15 +229,40 @@ def voice():
         if status_code == 200 and get_session_attribute('order') != "Confirm":
             response.say("Are you still there?")
             gather = response.gather(
-                action="/voice", method="POST",
+                action="/filler", method="POST",
                 input="speech dtmf", numDigits="1",
                 speechTimeout="auto",
                 language='en-IN', enhanced="true",
                 speechModel="phone_call",
                 hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala, Goat Sukka"
             )
-
     return str(response)
+
+
+@application.route("/filler", methods=['POST'])
+def filler():
+    response = VoiceResponse()
+    if "Digits" in request.values:
+        choice = request.values['Digits']
+        if choice == '9':
+            print('choice 9 detected for session_id', get_session_attribute('session_id'))
+            print('choice 9 detected for from_number', get_session_attribute('from_number'))
+            response.say("I am connecting you to the actual agent.")
+            response.say("Kindly wait while i am connecting you.")
+            agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
+            response.dial(agent_number)
+    else:
+        speech_result = request.form['SpeechResult']
+        if speech_result:
+            user_query = speech_result
+            if "?" in user_query:
+                response.say(get_randomly_question_filler_sentence())
+            else:
+                response.say(get_randomly_filler_sentence())
+            set_session_attribute("speech", user_query)
+            response.redirect('/voice')
+    return str(response)
+
 
 @application.route("/voice_error_handler", methods=['POST'])
 def voice_error_handler():
@@ -264,8 +282,6 @@ def voice_error_handler():
 def place_order():
     # ---> Once order is successfully placed bot says below statement
     response = VoiceResponse()
-    response.say(
-        "Your order has been placed successfully. Your order will be ready in 20-30 minutes and you can pay at the restaurant. Thank you for your business.")
     response.hangup()
     # ---> Getting order in json format using order_query of order module
     history = get_session_attribute('user_mes')

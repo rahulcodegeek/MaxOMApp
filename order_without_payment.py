@@ -289,7 +289,8 @@ def send_order_to_pos(order_id, res_id, is_test_mode):
             print()
             # ---> Then Add it in the order which is just created
             inlineItem = add_line_item(order, item, myItem, baseURL, headers)
-            add_modifier_in_line_item(order, item, inlineItem['id'], baseURL, headers)
+            if item['modifier_type_id'] != '':
+                add_modifier_in_line_item(order, item, inlineItem['id'], baseURL, headers)
     # ---> Open the order so its visible on other devices
     open_order(order, baseURL, headers)
     add_discount(order['id'], baseURL, headers)
