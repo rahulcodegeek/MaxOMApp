@@ -27,8 +27,13 @@ CORS(application)
 # --- Enable database
 #TODO - change or revisit the following two variables for every deployment
 #database_url = "mysql+pymysql://admin:voicebot@restuarantdatabase.cwr0mrljgsss.eu-west-1.rds.amazonaws.com:3306/restaurantvoicebot"
-database_url = "mysql+pymysql://admin:maxom123@awseb-e-4m68bme65w-stack-awsebrdsdatabase-uvdqhoxx5vij.cs0btkh5jqy1.us-west-2.rds.amazonaws.com:3306/restaurantvoicebot"
-is_test_mode = False
+#PROD
+#database_url = "mysql+pymysql://admin:maxom123@awseb-e-4m68bme65w-stack-awsebrdsdatabase-uvdqhoxx5vij.cs0btkh5jqy1.us-west-2.rds.amazonaws.com:3306/restaurantvoicebot"
+
+#TEST
+database_url = "mysql+pymysql://admin:maxom123@awseb-e-j7pyp2zkv6-stack-awsebrdsdatabase-dgmfmkp5fakq.cs0btkh5jqy1.us-west-2.rds.amazonaws.com:3306/restaurantvoicebot"
+
+is_test_mode = True
 
 # database_url = 'mysql://root:''@localhost:3308/restaurant'
 application.config["SQLALCHEMY_DATABASE_URI"] = database_url
@@ -242,18 +247,15 @@ def voice():
 @application.route("/filler", methods=['POST'])
 def filler():
     response = VoiceResponse()
-    if "Digits" in request.values:
-        choice = request.values['Digits']
-        if choice == '9':
-            print('choice 9 detected for session_id', get_session_attribute('session_id'))
-            print('choice 9 detected for from_number', get_session_attribute('from_number'))
+    speech_result = request.form['SpeechResult']
+    if speech_result:
+        if "agent" in speech_result.lower() or "customer service" in speech_result.lower():
             response.say("I am connecting you to the actual agent.")
-            response.say("Kindly wait while i am connecting you.")
+            response.say("Kindly wait for a moment...")
+            restaurant_phone_number = request.form['To']
             agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
             response.dial(agent_number)
-    else:
-        speech_result = request.form['SpeechResult']
-        if speech_result:
+        else:
             user_query = speech_result
             if "?" in user_query:
                 response.say(get_randomly_question_filler_sentence())

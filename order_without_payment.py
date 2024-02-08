@@ -293,7 +293,7 @@ def send_order_to_pos(order_id, res_id, is_test_mode):
                 add_modifier_in_line_item(order, item, inlineItem['id'], baseURL, headers)
     # ---> Open the order so its visible on other devices
     open_order(order, baseURL, headers)
-    add_discount(order['id'], baseURL, headers)
+    #add_discount(order['id'], baseURL, headers)
 
     # ---> Getting Order
     clover_order = get_order(order, baseURL, headers)
