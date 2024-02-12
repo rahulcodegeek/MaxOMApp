@@ -14,6 +14,7 @@ from db_persisters.restaurants import add_restaurant, get_restaurants
 from db_persisters.restaurant_system_configuration import add_restaurant_configuration
 from db_persisters.payment_callback import add_payment_callback
 from fillers_information import get_randomly_filler_sentence, get_randomly_question_filler_sentence
+import os
 
 application = Flask(__name__)
 # You can choose a different session type if needed
@@ -204,16 +205,48 @@ def voice():
         if get_session_attribute('first_message') and status_code == 200:
             # ---> First Hard code Query
             first_user_query = "Hi"
-            # ---> Getting reply from CHATGPT
-            welcome_message, status_code = conversation(first_user_query)
-
-            reply = welcome_message
+            # ---> Getting reply from
+            user_query = first_user_query + ' (refer to context)'
+            print('user_query for chat is ', user_query)
+            print('user_query is for session_id', get_session_attribute('session_id'))
+            # --> Getting previous conversation
+            history = get_session_attribute('user_mes')
+            history.append({"role": "user", "content": user_query})
+            set_session_attribute('user_mes', history)
+            conversation(history, get_session_attribute('session_id'))
+            with open("./resources/"+get_session_attribute('session_id')+".txt", 'r') as file:
+                file_content = file.read()
+                file_data = file_content.split(" status_code ")
+            reply = file_data[0]
+            status_code = int(file_data[1])
+            os.remove("./resources/"+get_session_attribute('session_id')+".txt")
+            print('reply from chat is ', reply)
+            print('reply is for session_id', get_session_attribute('session_id'))
+            # --> Storing updated conversation
+            history = get_session_attribute('user_mes')
+            history.append({"role": "assistant", "content": reply})
+            set_session_attribute('user_mes', history)
             set_session_attribute('first_message', False)
         elif not get_session_attribute('first_message'):
             # ---> Get the speech recognition result
             if get_session_attribute('speech') != "":
                 user_query = get_session_attribute('speech')
-                reply, status_code = conversation(user_query)
+                # reply, status_code = conversation(user_query)
+                file_path = "./resources/"+get_session_attribute('session_id')+".txt"
+                while not os.path.exists(file_path):
+                    print("Waiting for response to be created...")
+                with open(file_path, 'r') as file:
+                    file_content = file.read()
+                    file_data = file_content.split(" status_code ")
+                reply = file_data[0]
+                status_code = int(file_data[1])
+                os.remove(file_path)
+                print('reply from chat is ', reply)
+                print('reply is for session_id', get_session_attribute('session_id'))
+                # --> Storing updated conversation
+                history = get_session_attribute('user_mes')
+                history.append({"role": "assistant", "content": reply})
+                set_session_attribute('user_mes', history)
                 set_session_attribute("speech","")
                 # If <PLACE_ORDER_AND_END_CALL> is set then, it means the order is to be placed and conversation has to be ended.
                 if '<PLACE_ORDER_AND_END_CALL>' in reply:
@@ -257,6 +290,35 @@ def filler():
             response.dial(agent_number)
         else:
             user_query = speech_result
+            if user_query is None or user_query.strip() == '':
+                print('Error from conversation so, redirecting to actual agent...')
+                reply = 'Sorry for inconvenience five. I am connecting you to the actual agent wait for some moments.'
+                status = 500
+                with open("./resources/"+get_session_attribute('session_id')+".txt", 'w') as file:
+                    file_data = reply+" status_code "+str(status)
+                    file.write(file_data)
+            else:
+                # ---> Getting reply from
+                user_query = user_query + ' (refer to context)'
+                print('user_query for chat is ', user_query)
+                print('user_query is for session_id', get_session_attribute('session_id'))
+                # --> Getting previous conversation
+                history = get_session_attribute('user_mes')
+                history.append({"role": "user", "content": user_query})
+                set_session_attribute('user_mes', history)
+
+                def local_conversation(local_history, local_session_id):
+                    with application.test_request_context():
+                        conversation(local_history, local_session_id)
+
+                # ---> Sending payment message to customer
+                thread = threading.Thread(
+                    target=local_conversation,
+                    args=(
+                        history, get_session_attribute('session_id')
+                    )
+                )
+                thread.start()
             if "?" in user_query:
                 response.say(get_randomly_question_filler_sentence())
             else:
