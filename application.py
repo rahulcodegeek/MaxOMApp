@@ -15,6 +15,7 @@ from db_persisters.restaurant_system_configuration import add_restaurant_configu
 from db_persisters.payment_callback import add_payment_callback
 from fillers_information import get_randomly_filler_sentence, get_randomly_question_filler_sentence
 import os
+import json
 
 application = Flask(__name__)
 # You can choose a different session type if needed
@@ -161,6 +162,7 @@ actual agent wait for some moments.", 501
 #         return "Sorry for inconvenience four. I am connecting you to the actual agent wait for some moments", 500
 
 
+
 # --- Route to have the conversation with the bot using the twilio
 @application.route("/voice", methods=['POST'])
 def voice():
@@ -214,12 +216,12 @@ def voice():
             history.append({"role": "user", "content": user_query})
             set_session_attribute('user_mes', history)
             conversation(history, get_session_attribute('session_id'))
-            with open("./resources/"+get_session_attribute('session_id')+".txt", 'r') as file:
-                file_content = file.read()
-                file_data = file_content.split(" status_code ")
-            reply = file_data[0]
-            status_code = int(file_data[1])
-            os.remove("./resources/"+get_session_attribute('session_id')+".txt")
+            with open("./resources/"+get_session_attribute('session_id')+".json", 'r') as file:
+                data = json.load(file)
+            # Extract reply and status code from the data dictionary
+            reply = data["reply"]
+            status_code = data["status_code"]
+            os.remove("./resources/"+get_session_attribute('session_id')+".json")
             print('reply from chat is ', reply)
             print('reply is for session_id', get_session_attribute('session_id'))
             # --> Storing updated conversation
@@ -232,14 +234,14 @@ def voice():
             if get_session_attribute('speech') != "":
                 user_query = get_session_attribute('speech')
                 # reply, status_code = conversation(user_query)
-                file_path = "./resources/"+get_session_attribute('session_id')+".txt"
+                file_path = "./resources/"+get_session_attribute('session_id')+".json"
                 while not os.path.exists(file_path):
-                    print("Waiting for response to be created...")
+                    continue
                 with open(file_path, 'r') as file:
-                    file_content = file.read()
-                    file_data = file_content.split(" status_code ")
-                reply = file_data[0]
-                status_code = int(file_data[1])
+                    data = json.load(file)
+                # Extract reply and status code from the data dictionary
+                reply = data["reply"]
+                status_code = data["status_code"]
                 os.remove(file_path)
                 print('reply from chat is ', reply)
                 print('reply is for session_id', get_session_attribute('session_id'))

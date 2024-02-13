@@ -1,6 +1,7 @@
 import openai
 from openai import ChatCompletion, OpenAIError
 from session_manager import get_session_attribute, set_session_attribute
+import json
 
 # Initialize OpenAI
 openai.api_key_path = 'resources/chatgpt_api_key'
@@ -32,8 +33,11 @@ def chat_gpt_query(history, session_id):
             reply = "Sorry for inconvenience seven. I am connecting you to the actual agent wait for some moments."
             status = 502
 
-    with open("./resources/"+session_id+".txt", 'w') as file:
-        file_data = reply+" status_code "+str(status)
-        file.write(file_data)
+    data = {
+        "reply": reply,
+        "status_code": status
+    }
+    with open("./resources/"+session_id+".json", 'w') as file:
+        json.dump(data, file)
 
     return None
