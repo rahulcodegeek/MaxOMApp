@@ -163,6 +163,7 @@ actual agent wait for some moments.", 501
 
 
 
+
 # --- Route to have the conversation with the bot using the twilio
 @application.route("/voice", methods=['POST'])
 def voice():
@@ -237,8 +238,13 @@ def voice():
                 file_path = "./resources/"+get_session_attribute('session_id')+".json"
                 while not os.path.exists(file_path):
                     continue
-                with open(file_path, 'r') as file:
-                    data = json.load(file)
+                while True:
+                    try:
+                        with open(file_path, 'r') as file:
+                            data = json.load(file)
+                        break  # Break out of the loop if loading is successful
+                    except json.decoder.JSONDecodeError:
+                        continue
                 # Extract reply and status code from the data dictionary
                 reply = data["reply"]
                 status_code = data["status_code"]
@@ -283,6 +289,10 @@ def voice():
 def filler():
     response = VoiceResponse()
     speech_result = request.form['SpeechResult']
+    if get_session_attribute('order') == "Confirm":
+        print('Confirming the order for session_id...', get_session_attribute('session_id'))
+        print('Confirming the order for from_number', get_session_attribute('from_number'))
+        response.redirect('/place_order')
     if speech_result:
         if "agent" in speech_result.lower() or "customer service" in speech_result.lower():
             response.say("I am connecting you to the actual agent.")
