@@ -193,8 +193,7 @@ def voice():
         history = [{"role": "assistant", "content": prompt_data}]
         set_session_attribute('user_mes', history)
     if get_session_attribute('order') == "Confirm":
-        print('Confirming the order for session_id...', get_session_attribute('session_id'))
-        print('Confirming the order for from_number', get_session_attribute('from_number'))
+        print('Confirming the order from voice block for from_number, session_id', get_session_attribute('from_number'), get_session_attribute('session_id'))
         response.redirect('/place_order')
     else:
         gather = response.gather(
@@ -262,6 +261,8 @@ def voice():
                     set_session_attribute('history', history)
                     reply = reply.replace('<PLACE_ORDER_AND_END_CALL>', '')
                     set_session_attribute('order', "Confirm")
+                    print('Confirming the order from <PLACE_ORDER_AND_END_CALL> in the response for from_number, session_id',
+                          get_session_attribute('from_number'), get_session_attribute('session_id'))
                     response.redirect('/place_order')
         if status_code != 200:
             gather.say("I am connecting you to the actual agent.")
@@ -290,8 +291,7 @@ def filler():
     response = VoiceResponse()
     speech_result = request.form['SpeechResult']
     if get_session_attribute('order') == "Confirm":
-        print('Confirming the order for session_id...', get_session_attribute('session_id'))
-        print('Confirming the order for from_number', get_session_attribute('from_number'))
+        print('Confirming the order from filler block for from_number, session_id', get_session_attribute('from_number'), get_session_attribute('session_id'))
         response.redirect('/place_order')
     if speech_result:
         if "agent" in speech_result.lower() or "customer service" in speech_result.lower():
@@ -342,6 +342,8 @@ def filler():
 
 @application.route("/voice_error_handler", methods=['POST'])
 def voice_error_handler():
+    print("End session called from voice_error_handler for session ", get_session_attribute('session_id'))
+    end_session()
     response = VoiceResponse()
     response.say(
         "We apologize an application issue has occurred at our side. I am redirecting your call to a real agent. Thank you for your business.")
@@ -376,6 +378,7 @@ def place_order():
         )
     )
     thread.start()
+    print("End session called from place_order for session ", get_session_attribute('session_id'))
     end_session()
 
     print('Finally session ended')
@@ -384,6 +387,7 @@ def place_order():
 
 # --- Function to delete the session
 def end_session():
+    print("End session called for ", get_session_attribute('session_id'))
     delete_session_attribute('session_id')
     delete_session_attribute('first_message')
     delete_session_attribute('to_number')
