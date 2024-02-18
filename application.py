@@ -49,7 +49,7 @@ db.init_app(application)
 # --- Home Route
 @application.route('/')
 def hello_maxom():
-    return 'Hello from MaxOM On 2/18/24 01'
+    return 'Hello from MaxOM On 2/18/24 02'
 
 
 # --- Route to create the database tables which is defined in database file
