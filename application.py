@@ -1,18 +1,20 @@
-from chat_gpt_service import conversation
+from datetime import datetime, time
+import pytz
 from database import db
 from flask import Flask, request, session, render_template
 from flask_session import Session
 from flask_cors import CORS
-import threading
-from menu_service import fetch_remote_menu, persist_menu, load_menu
-from order_without_payment import persist_and_send_order_to_pos, send_order_to_pos
-from prompt_service import create_prompt_data
-from session_manager import create_session, set_session_attribute, \
-    get_session_attribute, delete_session_attribute
 from twilio.twiml.voice_response import VoiceResponse
+import threading
 from db_persisters.restaurants import add_restaurant, get_restaurants
 from db_persisters.restaurant_system_configuration import add_restaurant_configuration
 from db_persisters.payment_callback import add_payment_callback
+from session_manager import create_session, set_session_attribute, \
+    get_session_attribute, delete_session_attribute
+from prompt_service import create_prompt_data
+from menu_service import fetch_remote_menu, persist_menu, load_menu
+from chat_gpt_service import conversation
+from order_without_payment import persist_and_send_order_to_pos, send_order_to_pos
 from fillers_information import get_randomly_filler_sentence, get_randomly_question_filler_sentence
 import os
 import json
@@ -27,7 +29,7 @@ Session(application)
 CORS(application)
 
 # --- Enable database
-#TODO - change or revisit the following two variables for every deployment
+#TODO - change or revisit the following two variables database_url and is_test_mode accordingly for every deployment
 #database_url = "mysql+pymysql://admin:voicebot@restuarantdatabase.cwr0mrljgsss.eu-west-1.rds.amazonaws.com:3306/restaurantvoicebot"
 #PROD
 #database_url = "mysql+pymysql://admin:maxom123@awseb-e-4m68bme65w-stack-awsebrdsdatabase-uvdqhoxx5vij.cs0btkh5jqy1.us-west-2.rds.amazonaws.com:3306/restaurantvoicebot"
@@ -47,7 +49,7 @@ db.init_app(application)
 # --- Home Route
 @application.route('/')
 def hello_maxom():
-    return 'Hello from MaxOM On 1/14/24 01'
+    return 'Hello from MaxOM On 2/18/24 01'
 
 
 # --- Route to create the database tables which is defined in database file
@@ -173,116 +175,123 @@ def voice():
     reply = ''
     prompt_data = ''
     response = VoiceResponse()
+    restaurant_opening_time = time(16, 0)
+    restaurant_closing_time = time(11, 30)
+    print("Restaurant timings are between ", restaurant_opening_time, restaurant_closing_time)
+    if is_restaurant_open(restaurant_opening_time, restaurant_closing_time, 'America/Denver'):
+        # ---> Initiate the session if not already initialized
+        if 'session_id' not in session:
+            print('session_id is not in session, so setting it first time')
+            create_session()
+            set_session_attribute('first_message', True)
+            set_session_attribute('to_number', str(restaurant_phone_number))
+            set_session_attribute('from_number', str(calling_phone_number))
+            set_session_attribute('order', 'Not-Confirm')
+            # ---> Initiating the prompt for the restaurant phone number
+            prompt_data, status_code = create_prompt_data(restaurant_phone_number)
+            # ---> In case there is an error so say that otherwise will overwrite in the next if condition
+            print('status_code returned from create_prompt_data is', status_code)
+            print('create_prompt_data completed for session_id', get_session_attribute('session_id'))
+            print('create_prompt_data completed for from_number', get_session_attribute('from_number'))
 
-    # ---> Initiate the session if not already initialized
-    if 'session_id' not in session:
-        print('session_id is not in session, so setting it first time')
-        create_session()
-        set_session_attribute('first_message', True)
-        set_session_attribute('to_number', str(restaurant_phone_number))
-        set_session_attribute('from_number', str(calling_phone_number))
-        set_session_attribute('order', 'Not-Confirm')
-        # ---> Initiating the prompt for the restaurant phone number
-        prompt_data, status_code = create_prompt_data(restaurant_phone_number)
-        # ---> In case there is an error so say that otherwise will overwrite in the next if condition
-        print('status_code returned from create_prompt_data is', status_code)
-        print('create_prompt_data completed for session_id', get_session_attribute('session_id'))
-        print('create_prompt_data completed for from_number', get_session_attribute('from_number'))
-
-        reply = prompt_data
-        history = [{"role": "assistant", "content": prompt_data}]
-        set_session_attribute('user_mes', history)
-    if get_session_attribute('order') == "Confirm":
-        print('Confirming the order from voice block for from_number, session_id', get_session_attribute('from_number'), get_session_attribute('session_id'))
-        response.redirect('/place_order')
-    else:
-        gather = response.gather(
-            action="/filler", method="POST",
-            input="speech dtmf", numDigits="1",
-            speechTimeout="auto", timeout=7,
-            language='en-IN', enhanced="true",
-            speechModel="phone_call",
-            hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala, Goat Sukka"
-        )
-        if get_session_attribute('first_message') and status_code == 200:
-            # ---> First Hard code Query
-            first_user_query = "Hi"
-            # ---> Getting reply from
-            user_query = first_user_query + ' (refer to context)'
-            print('user_query for chat is ', user_query)
-            print('user_query is for session_id', get_session_attribute('session_id'))
-            # --> Getting previous conversation
-            history = get_session_attribute('user_mes')
-            history.append({"role": "user", "content": user_query})
+            reply = prompt_data
+            history = [{"role": "assistant", "content": prompt_data}]
             set_session_attribute('user_mes', history)
-            conversation(history, get_session_attribute('session_id'))
-            with open("./resources/"+get_session_attribute('session_id')+".json", 'r') as file:
-                data = json.load(file)
-            # Extract reply and status code from the data dictionary
-            reply = data["reply"]
-            status_code = data["status_code"]
-            os.remove("./resources/"+get_session_attribute('session_id')+".json")
-            print('reply from chat is ', reply)
-            print('reply is for session_id', get_session_attribute('session_id'))
-            # --> Storing updated conversation
-            history = get_session_attribute('user_mes')
-            history.append({"role": "assistant", "content": reply})
-            set_session_attribute('user_mes', history)
-            set_session_attribute('first_message', False)
-        elif not get_session_attribute('first_message'):
-            # ---> Get the speech recognition result
-            if get_session_attribute('speech') != "":
-                user_query = get_session_attribute('speech')
-                # reply, status_code = conversation(user_query)
-                file_path = "./resources/"+get_session_attribute('session_id')+".json"
-                while not os.path.exists(file_path):
-                    continue
-                while True:
-                    try:
-                        with open(file_path, 'r') as file:
-                            data = json.load(file)
-                        break  # Break out of the loop if loading is successful
-                    except json.decoder.JSONDecodeError:
-                        continue
+        if get_session_attribute('order') == "Confirm":
+            print('Confirming the order from voice block for from_number, session_id', get_session_attribute('from_number'), get_session_attribute('session_id'))
+            response.redirect('/place_order')
+        else:
+            gather = response.gather(
+                action="/filler", method="POST",
+                input="speech dtmf", numDigits="1",
+                speechTimeout="auto", timeout=7,
+                language='en-IN', enhanced="true",
+                speechModel="phone_call",
+                hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala, Goat Sukka"
+            )
+            if get_session_attribute('first_message') and status_code == 200:
+                # ---> First Hard code Query
+                first_user_query = "Hi"
+                # ---> Getting reply from
+                user_query = first_user_query + ' (refer to context)'
+                print('user_query for chat is ', user_query)
+                print('user_query is for session_id', get_session_attribute('session_id'))
+                # --> Getting previous conversation
+                history = get_session_attribute('user_mes')
+                history.append({"role": "user", "content": user_query})
+                set_session_attribute('user_mes', history)
+                conversation(history, get_session_attribute('session_id'))
+                with open("./resources/"+get_session_attribute('session_id')+".json", 'r') as file:
+                    data = json.load(file)
                 # Extract reply and status code from the data dictionary
                 reply = data["reply"]
                 status_code = data["status_code"]
-                os.remove(file_path)
+                os.remove("./resources/"+get_session_attribute('session_id')+".json")
                 print('reply from chat is ', reply)
                 print('reply is for session_id', get_session_attribute('session_id'))
                 # --> Storing updated conversation
                 history = get_session_attribute('user_mes')
                 history.append({"role": "assistant", "content": reply})
                 set_session_attribute('user_mes', history)
-                set_session_attribute("speech","")
-                # If <PLACE_ORDER_AND_END_CALL> is set then, it means the order is to be placed and conversation has to be ended.
-                if '<PLACE_ORDER_AND_END_CALL>' in reply:
+                set_session_attribute('first_message', False)
+            elif not get_session_attribute('first_message'):
+                # ---> Get the speech recognition result
+                if get_session_attribute('speech') != "":
+                    user_query = get_session_attribute('speech')
+                    # reply, status_code = conversation(user_query)
+                    file_path = "./resources/"+get_session_attribute('session_id')+".json"
+                    while not os.path.exists(file_path):
+                        continue
+                    while True:
+                        try:
+                            with open(file_path, 'r') as file:
+                                data = json.load(file)
+                            break  # Break out of the loop if loading is successful
+                        except json.decoder.JSONDecodeError:
+                            continue
+                    # Extract reply and status code from the data dictionary
+                    reply = data["reply"]
+                    status_code = data["status_code"]
+                    os.remove(file_path)
+                    print('reply from chat is ', reply)
+                    print('reply is for session_id', get_session_attribute('session_id'))
+                    # --> Storing updated conversation
                     history = get_session_attribute('user_mes')
-                    set_session_attribute('history', history)
-                    reply = reply.replace('<PLACE_ORDER_AND_END_CALL>', '')
-                    set_session_attribute('order', "Confirm")
-                    print('Confirming the order from <PLACE_ORDER_AND_END_CALL> in the response for from_number, session_id',
-                          get_session_attribute('from_number'), get_session_attribute('session_id'))
-                    response.redirect('/place_order')
-        if status_code != 200:
-            gather.say("I am connecting you to the actual agent.")
-            gather.say("Kindly wait while i am connecting you.")
-            agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
-            response.dial(agent_number)
-        else:
-            # ---> Normal conversation reply
-            gather.say(reply)
-        # ---> If there is no error continue call if user doesn't say anything for next 7 seconds
-        if status_code == 200 and get_session_attribute('order') != "Confirm":
-            response.say("Are you still there?")
-            gather = response.gather(
-                action="/filler", method="POST",
-                input="speech dtmf", numDigits="1",
-                speechTimeout="auto",
-                language='en-IN', enhanced="true",
-                speechModel="phone_call",
-                hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala, Goat Sukka"
-            )
+                    history.append({"role": "assistant", "content": reply})
+                    set_session_attribute('user_mes', history)
+                    set_session_attribute("speech","")
+                    # If <PLACE_ORDER_AND_END_CALL> is set then, it means the order is to be placed and conversation has to be ended.
+                    if '<PLACE_ORDER_AND_END_CALL>' in reply:
+                        history = get_session_attribute('user_mes')
+                        set_session_attribute('history', history)
+                        reply = reply.replace('<PLACE_ORDER_AND_END_CALL>', '')
+                        set_session_attribute('order', "Confirm")
+                        print('Confirming the order from <PLACE_ORDER_AND_END_CALL> in the response for from_number, session_id',
+                              get_session_attribute('from_number'), get_session_attribute('session_id'))
+                        response.redirect('/place_order')
+            if status_code != 200:
+                gather.say("I am connecting you to the actual agent.")
+                gather.say("Kindly wait while i am connecting you.")
+                agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
+                response.dial(agent_number)
+            else:
+                # ---> Normal conversation reply
+                gather.say(reply)
+            # ---> If there is no error continue call if user doesn't say anything for next 7 seconds
+            if status_code == 200 and get_session_attribute('order') != "Confirm":
+                response.say("Are you still there?")
+                gather = response.gather(
+                    action="/filler", method="POST",
+                    input="speech dtmf", numDigits="1",
+                    speechTimeout="auto",
+                    language='en-IN', enhanced="true",
+                    speechModel="phone_call",
+                    hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala, Goat Sukka"
+                )
+    else:
+        agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
+        print("Restaurant is closed right now so, redirecting the call to ", agent_number)
+        response.dial(agent_number)
     return str(response)
 
 
@@ -396,6 +405,19 @@ def end_session():
     delete_session_attribute('history')
     delete_session_attribute('order')
     return None
+
+def is_restaurant_open(restaurant_opening_time, restaurant_closing_time, timezone_str):
+    # Define the timezone
+    timezone = pytz.timezone(timezone_str)
+
+    # Get current time in the specified timezone
+    current_time = datetime.now(timezone).time()
+
+    # Check if current time is within the range
+    if restaurant_opening_time <= current_time <= restaurant_closing_time:
+        return True
+    else:
+        return False
 
 
 if __name__ == '__main__':
