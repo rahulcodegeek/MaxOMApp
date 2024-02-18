@@ -176,7 +176,7 @@ def voice():
     prompt_data = ''
     response = VoiceResponse()
     restaurant_opening_time = time(16, 0)
-    restaurant_closing_time = time(11, 30)
+    restaurant_closing_time = time(23, 30)
     print("Restaurant timings are between ", restaurant_opening_time, restaurant_closing_time)
     if is_restaurant_open(restaurant_opening_time, restaurant_closing_time, 'America/Denver'):
         # ---> Initiate the session if not already initialized
