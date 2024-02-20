@@ -166,7 +166,7 @@ actual agent wait for some moments.", 501
 
 
 
-# --- Route to have the conversation with the bot using the twilio
+# --- Route to have the conversation with the bot using the twilio +18018789557
 @application.route("/voice", methods=['POST'])
 def voice():
     status_code = 200
@@ -272,6 +272,7 @@ def voice():
             if status_code != 200:
                 gather.say("I am connecting you to the actual agent.")
                 gather.say("Kindly wait while i am connecting you.")
+                print('Status code at touchpoint 1 so, redirecting the call to backup number ', status_code)
                 agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
                 response.dial(agent_number)
             else:
@@ -307,12 +308,13 @@ def filler():
             response.say("I am connecting you to the actual agent.")
             response.say("Kindly wait for a moment...")
             restaurant_phone_number = request.form['To']
+            print('Detected agent or customer service at touchpoint 2 so, redirecting the call to backup number')
             agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
             response.dial(agent_number)
         else:
             user_query = speech_result
             if user_query is None or user_query.strip() == '':
-                print('Error from conversation so, redirecting to actual agent...')
+                print('Error from conversation at touchpoint 3 so, redirecting to actual agent...')
                 reply = 'Sorry for inconvenience five. I am connecting you to the actual agent wait for some moments.'
                 status = 500
                 with open("./resources/"+get_session_attribute('session_id')+".txt", 'w') as file:
