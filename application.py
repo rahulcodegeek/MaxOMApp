@@ -1,7 +1,7 @@
 from datetime import datetime, time
 import pytz
 from database import db
-from flask import Flask, request, session, render_template
+from flask import Flask, request, session, render_template, send_file
 from flask_session import Session
 from flask_cors import CORS
 from twilio.twiml.voice_response import VoiceResponse
@@ -18,6 +18,14 @@ from order_without_payment import persist_and_send_order_to_pos, send_order_to_p
 from fillers_information import get_randomly_filler_sentence, get_randomly_question_filler_sentence
 import os
 import json
+import sys
+from file_logger import FileLogger
+import zipfile
+
+# Redirect stdout and stderr to the file object
+sys.stdout = FileLogger("./logs/output_log.txt")
+sys.stderr = FileLogger("./logs/error_log.txt")
+
 
 application = Flask(__name__)
 # You can choose a different session type if needed
@@ -407,6 +415,22 @@ def end_session():
     delete_session_attribute('history')
     delete_session_attribute('order')
     return None
+
+
+@application.route('/download_logs')
+def download_logs():
+    try:
+        if os.path.exists('logs.zip'):
+            os.remove('logs.zip')
+        with zipfile.ZipFile('logs.zip', 'w') as zipf:
+            zipf.write('logs/output_log.txt', os.path.basename('output_log.txt'))
+            zipf.write('logs/error_log.txt', os.path.basename('error_log.txt'))
+
+        # Send the ZIP file as an attachment
+        return send_file('logs.zip', as_attachment=True)
+    except Exception as e:
+        return str(e)
+
 
 def is_restaurant_open(restaurant_opening_time, restaurant_closing_time, timezone_str):
     # Define the timezone
