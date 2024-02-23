@@ -312,7 +312,8 @@ def filler():
         print('Confirming the order from filler block for from_number, session_id', get_session_attribute('from_number'), get_session_attribute('session_id'))
         response.redirect('/place_order')
     if speech_result:
-        if "agent" in speech_result.lower() or "customer service" in speech_result.lower():
+        if "agent" in speech_result.lower() or "customer service" in speech_result.lower() or "human" in speech_result.lower() or "family biryani pack" in speech_result.lower() \
+                or "biryani pack" in speech_result.lower() or "family" in speech_result.lower():
             response.say("I am connecting you to the actual agent.")
             response.say("Kindly wait for a moment...")
             restaurant_phone_number = request.form['To']
