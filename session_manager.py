@@ -19,5 +19,7 @@ def get_session_attribute(attribute_name):
 
 # --- Deleting a session attribute using the name of attribute
 def delete_session_attribute(attribute_name):
-    del session[attribute_name]
+    if session.get(attribute_name):
+        if session[attribute_name]:
+            del session[attribute_name]
     return None
