@@ -9,7 +9,7 @@ import threading
 from db_persisters.restaurants import add_restaurant, get_restaurants
 from db_persisters.restaurant_system_configuration import add_restaurant_configuration
 from db_persisters.payment_callback import add_payment_callback
-from session_manager import create_session, set_session_attribute, \
+from session_manager import set_session_id, set_session_attribute, \
     get_session_attribute, delete_session_attribute
 from prompt_service import create_prompt_data
 from menu_service import fetch_remote_menu, persist_menu, load_menu
@@ -44,6 +44,7 @@ CORS(application)
 
 #TEST
 database_url = "mysql+pymysql://admin:maxom123@awseb-e-j7pyp2zkv6-stack-awsebrdsdatabase-dgmfmkp5fakq.cs0btkh5jqy1.us-west-2.rds.amazonaws.com:3306/restaurantvoicebot"
+#database_url = "mysql://admin:password@127.0.0.1:3306/restaurantvoicebot"
 
 is_test_mode = True
 
@@ -72,6 +73,14 @@ def get_loaded_menu(restaurant_id):
     return menu_content
 
 
+@application.route('/voice')
+def get_health_check():
+    data = {
+        'type': 'ac-bot-api',
+        'success': True
+    }
+    data = json.dumps(data)
+    return str(data)
 # --- Route to delete the database all tables
 # @application.route('/delete_db_tables')
 # def delete_db_tables():
@@ -178,19 +187,58 @@ actual agent wait for some moments.", 501
 @application.route("/voice", methods=['POST'])
 def voice():
     status_code = 200
-    restaurant_phone_number = request.form['To']
-    calling_phone_number = request.form.get('From')
+    print('request is ', request.get_data())
+    data = json.loads(request.get_data())
+
+    conversation_id = data['conversation']
+
+    data = {
+        'activitiesURL': 'conversation/'+conversation_id+'/activities',
+        'refreshURL': 'conversation/'+conversation_id+'/refresh',
+        'disconnectURL': 'conversation/'+conversation_id+'/disconnect',
+        'expiresSeconds': 60
+    }
+    data = json.dumps(data)
+    return str(data)
+
+@application.route("/conversation/<conversation_id>/refresh", methods=['POST'])
+def refresh(conversation_id):
+    refresh_response = {
+        "expiresSeconds": 60
+    }
+    refresh_response = json.dumps(refresh_response)
+    return str(refresh_response)
+
+@application.route("/conversation/<conversation_id>/disconnect", methods=['POST'])
+def disconnect(conversation_id):
+    disconnect_response = {
+    }
+    disconnect_response = json.dumps(disconnect_response)
+    return str(disconnect_response)
+
+
+@application.route("/conversation/<conversation_id>/activities", methods=['POST'])
+def activities(conversation_id):
+    status_code = 200
+    data = json.loads(request.get_data())
+    print(data)
+    conversation_id = data['conversation']
+
     reply = ''
     prompt_data = ''
-    response = VoiceResponse()
     restaurant_opening_time = time(16, 0)
-    restaurant_closing_time = time(23, 30)
+    restaurant_closing_time = time(5, 30)
     print("Restaurant timings are between ", restaurant_opening_time, restaurant_closing_time)
-    if is_restaurant_open(restaurant_opening_time, restaurant_closing_time, 'America/Denver'):
+    if is_restaurant_open_temp(restaurant_opening_time, restaurant_closing_time, 'America/Denver'):
         # ---> Initiate the session if not already initialized
         if 'session_id' not in session:
+            # TODO -- properly fetch these values from the start event
+            restaurant_phone_number = data['activities'][0]['parameters']['callee']
+            calling_phone_number = data['activities'][0]['parameters']['caller']
+            print('restaurant_phone_number and calling_phone_number fetched from the start event payload as ', restaurant_phone_number, calling_phone_number)
+
             print('session_id is not in session, so setting it first time')
-            create_session()
+            set_session_id(conversation_id)
             set_session_attribute('first_message', True)
             set_session_attribute('to_number', str(restaurant_phone_number))
             set_session_attribute('from_number', str(calling_phone_number))
@@ -207,16 +255,16 @@ def voice():
             set_session_attribute('user_mes', history)
         if get_session_attribute('order') == "Confirm":
             print('Confirming the order from voice block for from_number, session_id', get_session_attribute('from_number'), get_session_attribute('session_id'))
-            response.redirect('/place_order')
+            return place_order()
         else:
-            gather = response.gather(
-                action="/filler", method="POST",
-                input="speech dtmf", numDigits="1",
-                speechTimeout="auto", timeout=7,
-                language='en-IN', enhanced="true",
-                speechModel="phone_call",
-                hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala, Goat Sukka"
-            )
+            # gather = response.gather(
+            #     action="/filler", method="POST",
+            #     input="speech dtmf", numDigits="1",
+            #     speechTimeout="auto", timeout=7,
+            #     language='en-IN', enhanced="true",
+            #     speechModel="phone_call",
+            #     hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala, Goat Sukka"
+            # )
             if get_session_attribute('first_message') and status_code == 200:
                 # ---> First Hard code Query
                 first_user_query = "Hi"
@@ -276,108 +324,74 @@ def voice():
                         set_session_attribute('order', "Confirm")
                         print('Confirming the order from <PLACE_ORDER_AND_END_CALL> in the response for from_number, session_id',
                               get_session_attribute('from_number'), get_session_attribute('session_id'))
-                        response.redirect('/place_order')
+                        return place_order()
             if status_code != 200:
-                gather.say("I am connecting you to the actual agent.")
-                gather.say("Kindly wait while i am connecting you.")
-                agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
-                response.dial(agent_number)
+                redirect_response = form_redirection_response(conversation_id)
+                return str(redirect_response)
+                #agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
+                #response.dial(agent_number)
             else:
                 # ---> Normal conversation reply
-                gather.say(reply)
+                normal_response = form_response(conversation_id, reply)
+                normal_response = json.dumps(normal_response)
+                print('returning', normal_response)
+                return str(normal_response)
             # ---> If there is no error continue call if user doesn't say anything for next 7 seconds
-            if status_code == 200 and get_session_attribute('order') != "Confirm":
-                response.say("Are you still there?")
-                gather = response.gather(
-                    action="/filler", method="POST",
-                    input="speech dtmf", numDigits="1",
-                    speechTimeout="auto",
-                    language='en-IN', enhanced="true",
-                    speechModel="phone_call",
-                    hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala, Goat Sukka"
-                )
+            # if status_code == 200 and get_session_attribute('order') != "Confirm":
+            #     response.say("Are you still there?")
+            #     gather = response.gather(
+            #         action="/filler", method="POST",
+            #         input="speech dtmf", numDigits="1",
+            #         speechTimeout="auto",
+            #         language='en-IN', enhanced="true",
+            #         speechModel="phone_call",
+            #         hints = "yes, no, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, one, two, three, four, five, six, seven, eight, nine, ten, mild, medium, hot, mango lassi, cheese naan, butter naan, naan, appetizers, vegetarian, food, Paneer Tikka Masala, Masala Chai Tea, Chicken Tikka Masala, Goat Sukka"
+            #     )
     else:
+        #TODO -- properly fetch these values from the start event
+        restaurant_phone_number = data['activities'][0]['parameters']['callee']
         agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
+        redirect_response = form_redirection_response(conversation_id)
         print("Restaurant is closed right now so, redirecting the call to ", agent_number)
-        response.dial(agent_number)
-    return str(response)
+        return str(redirect_response)
 
 
-@application.route("/filler", methods=['POST'])
-def filler():
-    response = VoiceResponse()
-    speech_result = request.form['SpeechResult']
-    if get_session_attribute('order') == "Confirm":
-        print('Confirming the order from filler block for from_number, session_id', get_session_attribute('from_number'), get_session_attribute('session_id'))
-        response.redirect('/place_order')
-    if speech_result:
-        if "agent" in speech_result.lower() or "customer service" in speech_result.lower():
-            response.say("I am connecting you to the actual agent.")
-            response.say("Kindly wait for a moment...")
-            restaurant_phone_number = request.form['To']
-            agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
-            response.dial(agent_number)
-        else:
-            user_query = speech_result
-            if user_query is None or user_query.strip() == '':
-                print('Error from conversation so, redirecting to actual agent...')
-                reply = 'Sorry for inconvenience five. I am connecting you to the actual agent wait for some moments.'
-                status = 500
-                with open("./resources/"+get_session_attribute('session_id')+".txt", 'w') as file:
-                    file_data = reply+" status_code "+str(status)
-                    file.write(file_data)
-            else:
-                # ---> Getting reply from
-                user_query = user_query + ' (refer to context)'
-                print('user_query for chat is ', user_query)
-                print('user_query is for session_id', get_session_attribute('session_id'))
-                # --> Getting previous conversation
-                history = get_session_attribute('user_mes')
-                history.append({"role": "user", "content": user_query})
-                set_session_attribute('user_mes', history)
-
-                def local_conversation(local_history, local_session_id):
-                    with application.test_request_context():
-                        conversation(local_history, local_session_id)
-
-                # ---> Sending payment message to customer
-                thread = threading.Thread(
-                    target=local_conversation,
-                    args=(
-                        history, get_session_attribute('session_id')
-                    )
-                )
-                thread.start()
-            if "?" in user_query:
-                response.say(get_randomly_question_filler_sentence())
-            else:
-                response.say(get_randomly_filler_sentence())
-            set_session_attribute("speech", user_query)
-            response.redirect('/voice')
-    return str(response)
+def form_response(conversation_id, reply):
+    normal_response = {
+        'activities': [
+            {
+                'id': conversation_id,
+                'timestamp': datetime.utcnow().isoformat(),
+                'language': 'en-US',
+                'type': 'message',
+                'text': reply
+            }
+        ]
+    }
+    return normal_response
 
 
-@application.route("/voice_error_handler", methods=['POST'])
-def voice_error_handler():
-    print("End session called from voice_error_handler for session ", get_session_attribute('session_id'))
-    end_session()
-    response = VoiceResponse()
-    response.say(
-        "We apologize an application issue has occurred at our side. I am redirecting your call to a real agent. Thank you for your business.")
-    restaurant_phone_number = request.form['To']
-    agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
-    response.dial(agent_number)
-    return str(response)
+def form_redirection_response(conversation_id):
+    redirect_response = {
+        'activities': [
+            {
+                'id': conversation_id,
+                'timestamp': datetime.utcnow().isoformat(),
+                'language': 'en-US',
+                'type': 'message',
+                'text': 'I am connecting you to the actual agent. Kindly wait while i am connecting you. Though I have to still implement redirection, please feel free to hangup..'
+            }
+        ]
+    }
+    redirect_response = json.dumps(redirect_response)
+    print('returning', redirect_response)
+    return redirect_response
 
-
-
+#filler and voice_error_handler
 
 # --- Route to place the order
 @application.route("/place_order", methods=['POST'])
 def place_order():
-    # ---> Once order is successfully placed bot says below statement
-    response = VoiceResponse()
-    response.hangup()
     # ---> Getting order in json format using order_query of order module
     history = get_session_attribute('user_mes')
     from_ = get_session_attribute('from_number')
@@ -394,12 +408,19 @@ def place_order():
             history, from_, to_, is_test_mode
         )
     )
+
     thread.start()
     print("End session called from place_order for session ", get_session_attribute('session_id'))
     end_session()
 
+    hang_up_event_as_response = {
+        'type': 'event',
+        'name': 'hangup'
+    }
     print('Finally session ended')
-    return str(response)
+    hang_up_event_as_response = json.dumps(hang_up_event_as_response)
+    print('returning hang_up_event_as_response', hang_up_event_as_response)
+    return hang_up_event_as_response
 
 
 # --- Function to delete the session
@@ -442,6 +463,9 @@ def is_restaurant_open(restaurant_opening_time, restaurant_closing_time, timezon
         return True
     else:
         return False
+
+def is_restaurant_open_temp(restaurant_opening_time, restaurant_closing_time, timezone_str):
+    return True
 
 
 if __name__ == '__main__':

@@ -3,8 +3,8 @@ from flask import session
 
 
 # --- Creating Session
-def create_session():
-    session['session_id'] = str(uuid.uuid4())
+def set_session_id(session_id):
+    session['session_id'] = session_id
 
 
 # --- Setting a session attribute using its name and value
