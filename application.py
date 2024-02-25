@@ -57,8 +57,30 @@ db.init_app(application)
 # ------------ Routes ------------
 # --- Home Route
 @application.route('/')
-def hello_maxom():
-    return 'Hello from MaxOM On 2/18/24 01'
+def get_health():
+    data = {
+        'type': 'ac-bot-api',
+        'success': True
+    }
+    data = json.dumps(data)
+    return str(data)
+
+@application.route("/", methods=['POST'])
+def voice():
+    status_code = 200
+    print('request in / POST method is ', request.get_data())
+    data = json.loads(request.get_data())
+
+    conversation_id = data['conversation']
+
+    data = {
+        'activitiesURL': 'conversation/'+conversation_id+'/activities',
+        'refreshURL': 'conversation/'+conversation_id+'/refresh',
+        'disconnectURL': 'conversation/'+conversation_id+'/disconnect',
+        'expiresSeconds': 60
+    }
+    data = json.dumps(data)
+    return str(data)
 
 
 # --- Route to create the database tables which is defined in database file
@@ -72,15 +94,6 @@ def get_loaded_menu(restaurant_id):
     menu_content, status_code = load_menu(restaurant_id)
     return menu_content
 
-
-@application.route('/voice')
-def get_health_check():
-    data = {
-        'type': 'ac-bot-api',
-        'success': True
-    }
-    data = json.dumps(data)
-    return str(data)
 # --- Route to delete the database all tables
 # @application.route('/delete_db_tables')
 # def delete_db_tables():
@@ -182,27 +195,11 @@ actual agent wait for some moments.", 501
 
 
 
-
-# --- Route to have the conversation with the bot using the twilio
-@application.route("/voice", methods=['POST'])
-def voice():
-    status_code = 200
-    print('request is ', request.get_data())
-    data = json.loads(request.get_data())
-
-    conversation_id = data['conversation']
-
-    data = {
-        'activitiesURL': 'conversation/'+conversation_id+'/activities',
-        'refreshURL': 'conversation/'+conversation_id+'/refresh',
-        'disconnectURL': 'conversation/'+conversation_id+'/disconnect',
-        'expiresSeconds': 60
-    }
-    data = json.dumps(data)
-    return str(data)
-
 @application.route("/conversation/<conversation_id>/refresh", methods=['POST'])
 def refresh(conversation_id):
+    data = json.loads(request.get_data())
+    print('request in refresh POST method is ', data)
+
     refresh_response = {
         "expiresSeconds": 60
     }
@@ -211,6 +208,9 @@ def refresh(conversation_id):
 
 @application.route("/conversation/<conversation_id>/disconnect", methods=['POST'])
 def disconnect(conversation_id):
+    data = json.loads(request.get_data())
+    print('request in disconnect POST method is ', data)
+
     disconnect_response = {
     }
     disconnect_response = json.dumps(disconnect_response)
@@ -221,7 +221,9 @@ def disconnect(conversation_id):
 def activities(conversation_id):
     status_code = 200
     data = json.loads(request.get_data())
-    print(data)
+    print('request in activities POST method is ', data)
+    print('session contains', session)
+
     conversation_id = data['conversation']
 
     reply = ''
@@ -236,15 +238,16 @@ def activities(conversation_id):
             restaurant_phone_number = data['activities'][0]['parameters']['callee']
             calling_phone_number = data['activities'][0]['parameters']['caller']
             print('restaurant_phone_number and calling_phone_number fetched from the start event payload as ', restaurant_phone_number, calling_phone_number)
-
-            print('session_id is not in session, so setting it first time')
-            set_session_id(conversation_id)
+            set_session_attribute('session_id', str(conversation_id))
+            print('session_id has now been set as ', get_session_attribute('session_id'))
             set_session_attribute('first_message', True)
             set_session_attribute('to_number', str(restaurant_phone_number))
             set_session_attribute('from_number', str(calling_phone_number))
             set_session_attribute('order', 'Not-Confirm')
             # ---> Initiating the prompt for the restaurant phone number
             prompt_data, status_code = create_prompt_data(restaurant_phone_number)
+
+            print('Now session contains', session)
             # ---> In case there is an error so say that otherwise will overwrite in the next if condition
             print('status_code returned from create_prompt_data is', status_code)
             print('create_prompt_data completed for session_id', get_session_attribute('session_id'))
@@ -267,6 +270,7 @@ def activities(conversation_id):
             # )
             if get_session_attribute('first_message') and status_code == 200:
                 # ---> First Hard code Query
+                print('first_message is not in session, so flowing through first_message block')
                 first_user_query = "Hi"
                 # ---> Getting reply from
                 user_query = first_user_query + ' (refer to context)'
