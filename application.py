@@ -268,10 +268,10 @@ def activities(conversation_id):
             history = [{"role": "assistant", "content": prompt_data}]
             store.rpush(conversation_id+'-user_mes', json.dumps({"role": "assistant", "content": prompt_data}))
 
-        if len(conversation_dictionary) != 0 and store.hgetall(conversation_id)['order'] == "Confirm":
+        if len(conversation_dictionary) != 0 and store.hgetall(conversation_id)['order'] == 'Confirm':
             print('Confirming the order from voice block for from_number, session_id',
                   conversation_dictionary['from_number'], conversation_id)
-            return place_order(conversation_id)
+            return form_hangup_response()
         else:
             conversation_dictionary = store.hgetall(conversation_id)
             # gather = response.gather(
@@ -349,12 +349,14 @@ def activities(conversation_id):
                 # If <PLACE_ORDER_AND_END_CALL> is set then, it means the order is to be placed and conversation has to be ended.
                 if '<PLACE_ORDER_AND_END_CALL>' in reply:
                     #TODO
-                    history = store.lrange(conversation_id+'-user_mes', 0, -1)
-                    store.hset(conversation_id, 'history', history)
+                    # history = store.lrange(conversation_id+'-user_mes', 0, -1)
+                    # store.hset(conversation_id, 'history', history)
                     reply = reply.replace('<PLACE_ORDER_AND_END_CALL>', '')
                     store.hset(conversation_id, 'order', 'Confirm')
                     print('Confirming the order from <PLACE_ORDER_AND_END_CALL> in the response for', conversation_id)
-                    return place_order(conversation_id)
+                    status_code = place_order(conversation_id)
+                    print('From <PLACE_ORDER_AND_END_CALL> block for conversation_id response is', conversation_id,
+                          status_code, reply)
             if status_code != 200:
                 redirect_response = form_redirection_response()
                 return str(redirect_response)
@@ -385,6 +387,17 @@ def activities(conversation_id):
         print("Restaurant is closed right now so, redirecting the call to ", agent_number)
         return str(redirect_response)
 
+def form_hangup_response():
+    hangup_response = {
+        'activities': [
+            {
+                'id': str(uuid.uuid4()),
+                'type': 'event',
+                'name': 'hangup'
+            }
+        ]
+    }
+    return hangup_response
 
 def form_response(reply):
     normal_response = {
@@ -426,6 +439,12 @@ def place_order(conversation_id):
     conversation_dictionary = store.hgetall(conversation_id)
     # ---> Getting order in json format using order_query of order module
     history = store.lrange(conversation_id+'-user_mes', 0, -1)
+
+    formatted_history = []
+    for message_str in history:
+        message = json.loads(message_str)
+        formatted_history.append(message)
+
     from_ = conversation_dictionary['from_number']
     to_ = conversation_dictionary['to_number']
 
@@ -437,23 +456,17 @@ def place_order(conversation_id):
     thread = threading.Thread(
         target=local_persist_and_send_order_to_pos,
         args=(
-            history, from_, to_, is_test_mode
+            formatted_history, from_, to_, is_test_mode
         )
     )
 
     thread.start()
     print("End session called from place_order for session ", conversation_id)
 
-    store.delete(conversation_id)
+    #store.delete(conversation_id)
 
-    hang_up_event_as_response = {
-        'type': 'event',
-        'name': 'hangup'
-    }
-    print('Finally session ended')
-    hang_up_event_as_response = json.dumps(hang_up_event_as_response)
-    print('returning hang_up_event_as_response', hang_up_event_as_response)
-    return hang_up_event_as_response
+    print('returning with the hang_up_event_as_response from place_order as  ', 200)
+    return 200
 
 
 @application.route('/download_logs')
