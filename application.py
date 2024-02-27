@@ -20,6 +20,7 @@ import sys
 from file_logger import FileLogger
 import zipfile
 import redis
+import uuid
 
 # Redirect stdout and stderr to the file object
 sys.stdout = FileLogger("./logs/output_log.txt")
@@ -355,13 +356,13 @@ def activities(conversation_id):
                     print('Confirming the order from <PLACE_ORDER_AND_END_CALL> in the response for', conversation_id)
                     return place_order(conversation_id)
             if status_code != 200:
-                redirect_response = form_redirection_response(conversation_id)
+                redirect_response = form_redirection_response()
                 return str(redirect_response)
                 # agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
                 # response.dial(agent_number)
             else:
                 # ---> Normal conversation reply
-                normal_response = form_response(conversation_id, reply)
+                normal_response = form_response(reply)
                 normal_response = json.dumps(normal_response)
                 print('returning normal_response from the respective block ', normal_response)
                 return str(normal_response)
@@ -380,16 +381,16 @@ def activities(conversation_id):
         # TODO -- properly fetch these values from the start event
         restaurant_phone_number = data['activities'][0]['parameters']['callee']
         agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
-        redirect_response = form_redirection_response(conversation_id)
+        redirect_response = form_redirection_response()
         print("Restaurant is closed right now so, redirecting the call to ", agent_number)
         return str(redirect_response)
 
 
-def form_response(conversation_id, reply):
+def form_response(reply):
     normal_response = {
         'activities': [
             {
-                'id': conversation_id,
+                'id': str(uuid.uuid4()),
                 'timestamp': datetime.utcnow().isoformat(),
                 'language': 'en-US',
                 'type': 'message',
@@ -400,11 +401,11 @@ def form_response(conversation_id, reply):
     return normal_response
 
 
-def form_redirection_response(conversation_id):
+def form_redirection_response():
     redirect_response = {
         'activities': [
             {
-                'id': conversation_id,
+                'id': str(uuid.uuid4()),
                 'timestamp': datetime.utcnow().isoformat(),
                 'language': 'en-US',
                 'type': 'message',
