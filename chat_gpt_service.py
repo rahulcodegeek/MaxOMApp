@@ -8,14 +8,14 @@ openai.api_endpoint = 'https://api.openai.com/v1/chat/completions'
 
 
 # --- Conversation with ChatGpt
-def conversation(history, conversation_id):
+def conversation(history):
     # --> Sending the user query to the chatgpt function
-    response, status_code = chat_gpt_query(history, conversation_id)
+    response, status_code = chat_gpt_query(history)
     return response, status_code
 
 
 # --- Calls ChatGpt Api using gpt-3.5-turbo-16k model
-def chat_gpt_query(history, conversation_id):
+def chat_gpt_query(history):
     if history is None:
         print('Error from chat query, so redirecting to actual agent...')
         reply = 'Sorry for inconvenience six. I am connecting you to the actual agent wait for some moments.'

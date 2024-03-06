@@ -230,7 +230,7 @@ def disconnect(conversation_id):
 def activities(conversation_id):
     status_code = 200
     data = json.loads(request.get_data())
-    print('request in activities POST method is ', data)
+    print('request in activities POST method is ***', data)
     print('session contains', session)
 
     conversation_id = data['conversation']
@@ -243,7 +243,6 @@ def activities(conversation_id):
     if is_restaurant_open_temp(restaurant_opening_time, restaurant_closing_time, 'America/Denver'):
         # ---> Initiate the session if not already initialized
         conversation_dictionary = store.hgetall(conversation_id)
-        print('Is ', conversation_id, ' present:', conversation_dictionary, len(conversation_dictionary))
         if len(conversation_dictionary) == 0:
             # TODO -- properly fetch these values from the start event
             restaurant_phone_number = data['activities'][0]['parameters']['callee']
@@ -255,6 +254,8 @@ def activities(conversation_id):
             store.hset(conversation_id, 'to_number', str(restaurant_phone_number))
             store.hset(conversation_id, 'from_number', str(calling_phone_number))
             store.hset(conversation_id, 'order', 'Not-Confirm')
+            redirection_number = get_restaurants(restaurant_phone_number).redirection_phone_number
+            store.hset(conversation_id, 'redirection_number', str(redirection_number))
 
             # ---> Initiating the prompt for the restaurant phone number
             prompt_data, status_code = create_prompt_data(restaurant_phone_number)
@@ -271,7 +272,9 @@ def activities(conversation_id):
         if len(conversation_dictionary) != 0 and store.hgetall(conversation_id)['order'] == 'Confirm':
             print('Confirming the order from voice block for from_number, session_id',
                   conversation_dictionary['from_number'], conversation_id)
-            return form_hangup_response()
+            hangup_response = form_hangup_response('Order Confirmed')
+            print('returning hangup_response from the order Confirm block ', hangup_response)
+            return str(hangup_response)
         else:
             conversation_dictionary = store.hgetall(conversation_id)
             # gather = response.gather(
@@ -301,14 +304,8 @@ def activities(conversation_id):
 
                 formatted_history.append({"role": "user", "content": user_query})
                 store.rpush(conversation_id+'-user_mes', json.dumps({"role": "user", "content": user_query}))
-                reply, status_code = conversation(formatted_history, conversation_id)
+                reply, status_code = conversation(formatted_history)
 
-                # with open("./resources/" + conversation_id + ".json", 'r') as file:
-                #     data = json.load(file)
-                # # Extract reply and status code from the data dictionary
-                # reply = data["reply"]
-                # status_code = data["status_code"]
-                # os.remove("./resources/" + conversation_id + ".json")
                 print('welcome_message from chat is ', reply)
                 print('welcome_message is for session_id', conversation_id)
                 # --> Storing updated conversation
@@ -327,12 +324,21 @@ def activities(conversation_id):
                     formatted_history.append(message)
 
                 user_query = data['activities'][0]['text']
+                user_query_to_lower_case = user_query.lower()
+                #forward the call to the redirection number in case the user has mentioned any of the following words
+                if ("agent" in user_query_to_lower_case or "customer service" in user_query_to_lower_case
+                        or "human" in user_query_to_lower_case or "family biryani pack" in user_query_to_lower_case
+                        or "biryani pack" in user_query_to_lower_case or "family" in user_query_to_lower_case):
+                    redirect_response = form_redirection_response(conversation_dictionary['redirection_number'])
+                    print('returning redirect_response  ', redirect_response)
+                    return str(redirect_response)
+
                 print('user_query is normal conversation is ', user_query)
 
                 formatted_history.append({"role": "user", "content": user_query})
                 store.rpush(conversation_id + '-user_mes', json.dumps({"role": "user", "content": user_query}))
 
-                reply, status_code = conversation(formatted_history, conversation_id)
+                reply, status_code = conversation(formatted_history)
 
                 # with open("./resources/" + conversation_id + ".json", 'r') as file:
                 #     data = json.load(file)
@@ -348,7 +354,7 @@ def activities(conversation_id):
 
                 # If <PLACE_ORDER_AND_END_CALL> is set then, it means the order is to be placed and conversation has to be ended.
                 if '<PLACE_ORDER_AND_END_CALL>' in reply:
-                    #TODO
+                    #TODO verif of the following 2 lines are needed or npt
                     # history = store.lrange(conversation_id+'-user_mes', 0, -1)
                     # store.hset(conversation_id, 'history', history)
                     reply = reply.replace('<PLACE_ORDER_AND_END_CALL>', '')
@@ -358,14 +364,19 @@ def activities(conversation_id):
                     print('From <PLACE_ORDER_AND_END_CALL> block for conversation_id response is', conversation_id,
                           status_code, reply)
             if status_code != 200:
-                redirect_response = form_redirection_response()
+                redirect_response = form_redirection_response(conversation_dictionary['redirection_number'])
+                print('returning redirect_response  ', redirect_response)
                 return str(redirect_response)
                 # agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
                 # response.dial(agent_number)
             else:
                 # ---> Normal conversation reply
+                print('cache [order] value is ', store.hgetall(conversation_id)['order'])
+                # gathering this value directly from cache rather than conversation_dictionary because it just got set in the cache in the current loop if the order was placed above.
+                #if store.hgetall(conversation_id)['order'] == 'Confirm':
+                #    normal_response = form_response_with_hangup(reply)
+                #else:
                 normal_response = form_response(reply)
-                normal_response = json.dumps(normal_response)
                 print('returning normal_response from the respective block ', normal_response)
                 return str(normal_response)
             # ---> If there is no error continue call if user doesn't say anything for next 7 seconds
@@ -382,22 +393,23 @@ def activities(conversation_id):
     else:
         # TODO -- properly fetch these values from the start event
         restaurant_phone_number = data['activities'][0]['parameters']['callee']
-        agent_number = get_restaurants(restaurant_phone_number).redirection_phone_number
-        redirect_response = form_redirection_response()
-        print("Restaurant is closed right now so, redirecting the call to ", agent_number)
+        redirection_number = get_restaurants(restaurant_phone_number).redirection_phone_number
+        redirect_response = form_redirection_response(redirection_number)
+        print("Restaurant is closed right now so, redirecting the call to ", redirection_number)
         return str(redirect_response)
 
-def form_hangup_response():
+def form_hangup_response(reason):
     hangup_response = {
         'activities': [
             {
                 'id': str(uuid.uuid4()),
+                'timestamp': datetime.utcnow().isoformat(),
                 'type': 'event',
                 'name': 'hangup'
             }
         ]
     }
-    return hangup_response
+    return json.dumps(hangup_response)
 
 def form_response(reply):
     normal_response = {
@@ -411,24 +423,46 @@ def form_response(reply):
             }
         ]
     }
-    return normal_response
+    return json.dumps(normal_response)
 
-
-def form_redirection_response():
-    redirect_response = {
+def form_response_with_hangup(reply):
+    normal_response = {
         'activities': [
             {
                 'id': str(uuid.uuid4()),
                 'timestamp': datetime.utcnow().isoformat(),
                 'language': 'en-US',
                 'type': 'message',
-                'text': 'I am connecting you to the actual agent. Kindly wait while i am connecting you. Though I have to still implement redirection, please feel free to hangup..'
+                'text': reply
+            },
+            {
+                'id': str(uuid.uuid4()),
+                'timestamp': datetime.utcnow().isoformat(),
+                'type': 'event',
+                'name': 'hangup'
             }
         ]
     }
-    redirect_response = json.dumps(redirect_response)
-    print('returning', redirect_response)
-    return redirect_response
+    return json.dumps(normal_response)
+
+
+def form_redirection_response(redirection_number):
+    redirect_response = {
+        'activities': [
+            {
+                'id': str(uuid.uuid4()),
+                'timestamp': datetime.utcnow().isoformat(),
+                'type': 'event',
+                'name': 'transfer',
+                'activityParams': {
+                    'transferTarget': 'tel:'+redirection_number
+            },
+            'transferNotifications': True,
+            'transferNotificationsHangupMS': 2000
+            }
+        ]
+    }
+    return json.dumps(redirect_response)
 
 
 # filler and voice_error_handler
@@ -461,6 +495,7 @@ def place_order(conversation_id):
     )
 
     thread.start()
+    #TODO - delete the cache entries
     print("End session called from place_order for session ", conversation_id)
 
     #store.delete(conversation_id)
