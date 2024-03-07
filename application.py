@@ -12,6 +12,7 @@ from db_persisters.payment_callback import add_payment_callback
 from prompt_service import create_prompt_data
 from menu_service import fetch_remote_menu, persist_menu, load_menu
 from chat_gpt_service import conversation
+from langchain_service import langchain_conversation, create_embeddings
 from order_without_payment import persist_and_send_order_to_pos, send_order_to_pos
 from fillers_information import get_randomly_filler_sentence, get_randomly_question_filler_sentence
 import os
@@ -258,16 +259,19 @@ def activities(conversation_id):
             store.hset(conversation_id, 'redirection_number', str(redirection_number))
 
             # ---> Initiating the prompt for the restaurant phone number
-            prompt_data, status_code = create_prompt_data(restaurant_phone_number)
+            embedding_path, status_code = create_embeddings(restaurant_phone_number)
+            store.hset(conversation_id, 'embedding_path', embedding_path)
+
+
 
             print('Now session contains', session)
             # ---> In case there is an error so say that otherwise will overwrite in the next if condition
             print('status_code returned from create_prompt_data is', status_code)
             print('create_prompt_data completed for session_id', conversation_id)
 
-            reply = prompt_data
-            history = [{"role": "assistant", "content": prompt_data}]
-            store.rpush(conversation_id+'-user_mes', json.dumps({"role": "assistant", "content": prompt_data}))
+            #reply = prompt_data
+            #history = [{"role": "assistant", "content": prompt_data}]
+            #store.rpush(conversation_id+'-user_mes', json.dumps({"role": "assistant", "content": prompt_data}))
 
         if len(conversation_dictionary) != 0 and store.hgetall(conversation_id)['order'] == 'Confirm':
             print('Confirming the order from voice block for from_number, session_id',
@@ -304,7 +308,8 @@ def activities(conversation_id):
 
                 formatted_history.append({"role": "user", "content": user_query})
                 store.rpush(conversation_id+'-user_mes', json.dumps({"role": "user", "content": user_query}))
-                reply, status_code = conversation(formatted_history)
+                # reply, status_code = conversation(formatted_history, conversation_id)
+                reply, status_code = langchain_conversation(conversation_dictionary['to_number'], conversation_dictionary['embedding_path'], formatted_history)
 
                 print('welcome_message from chat is ', reply)
                 print('welcome_message is for session_id', conversation_id)
@@ -338,7 +343,7 @@ def activities(conversation_id):
                 formatted_history.append({"role": "user", "content": user_query})
                 store.rpush(conversation_id + '-user_mes', json.dumps({"role": "user", "content": user_query}))
 
-                reply, status_code = conversation(formatted_history)
+                reply, status_code = langchain_conversation(conversation_dictionary['to_number'], conversation_dictionary['embedding_path'], formatted_history)
 
                 # with open("./resources/" + conversation_id + ".json", 'r') as file:
                 #     data = json.load(file)
@@ -354,7 +359,7 @@ def activities(conversation_id):
 
                 # If <PLACE_ORDER_AND_END_CALL> is set then, it means the order is to be placed and conversation has to be ended.
                 if '<PLACE_ORDER_AND_END_CALL>' in reply:
-                    #TODO verif of the following 2 lines are needed or npt
+                    #TODO verify of the following 2 lines are needed or npt
                     # history = store.lrange(conversation_id+'-user_mes', 0, -1)
                     # store.hset(conversation_id, 'history', history)
                     reply = reply.replace('<PLACE_ORDER_AND_END_CALL>', '')
