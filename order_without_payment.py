@@ -1,7 +1,9 @@
 import json
 import requests
 from db_persisters.orders import get_order_by_order_id
-from openai import ChatCompletion, OpenAIError
+from openai import OpenAI
+import openai
+import utils.config as config
 from db_persisters.restaurant_system_configuration import \
     get_restaurants_configuration
 from db_persisters.restaurants import get_restaurants
@@ -49,10 +51,15 @@ def order_query(history):
     history.append({"role": "user", "content": user_query})
     # --> Calling ChatGpt Api and return its reply with status 200 if successful otherwise return with status 502
     try:
-        chat = ChatCompletion.create(model="gpt-4-1106-preview", messages=history)
+        client = OpenAI(api_key=config.OPEN_AI_API_KEY)
+
+        chat = client.chat.completions.create(
+            model="gpt-4-0125-preview",
+            messages=history
+        )
         reply = chat.choices[0].message.content
         status = 200
-    except OpenAIError as e:
+    except Exception as e:
         print(e)
         reply = "Sorry for inconvenience eight. I am connecting you to the actual agent wait for some moments."
         status = 502

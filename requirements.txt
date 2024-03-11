@@ -37,7 +37,7 @@ marshmallow==3.21.0
 multidict==6.0.4
 mypy-extensions==1.0.0
 numpy==1.26.4
-openai==0.27.8
+openai==1.13.3
 orjson==3.9.15
 packaging==23.2
 pyasn1==0.5.1
@@ -66,3 +66,6 @@ urllib3==2.2.1
 Werkzeug==3.0.0
 yarl==1.9.2
 zipp==3.17.0
+pickle-mixin==1.0.2
+cosine_similarity==0.1.2
+scikit-learn

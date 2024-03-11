@@ -38,7 +38,7 @@ def create_embeddings(restaurant_phone_number):
     return local_retriever_path, 200
 
 
-def langchain_conversation(restaurant_number, retriever_path, history):
+def langchain_conversation(restaurant_number, retriever_path, user_query, history):
     query = ""
     res = get_restaurants(restaurant_number)
     restaurant_information = json.loads(res.information_json)
@@ -67,6 +67,7 @@ def langchain_conversation(restaurant_number, retriever_path, history):
             search_type="similarity_score_threshold",
             search_kwargs={'score_threshold': 0.60}
         )
+
         QA_CHAIN_PROMPT = PromptTemplate(
             input_variables=["context", "question"],
             template=data
