@@ -225,20 +225,35 @@ def get_order(order, baseURL, headers):
 def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode):
     order_id = None
     try:
+        print('persist_and_send_order_to_pos.....')
         Conversation_template = Make_conversation_template(history)
+        print('Conversation_template ', Conversation_template)
         order, status_code = order_query(history)
+        print('order ', order)
         tax_rate = get_tax_rate(to_number)
+        print('tax_rate ', tax_rate)
         tax_rate_percentage = tax_rate/100000
         # ---> Calculating tax on order
         price = order['total_price']
+        print('price of the order ', price)
         nm_price = ''.join(c for c in price if c.isdigit() or c == '.')
+        print('nm_price ', nm_price)
+
         sales_tax = (float(tax_rate_percentage) / float(100)) * float(nm_price)
+        print('sales_tax ', sales_tax)
+
         total_price_with_tax = float(nm_price) + float(sales_tax)
+        print('total_price_with_tax ', total_price_with_tax)
+
         total_price_with_tax = round(total_price_with_tax, 2)
+        print('total_price_with_tax rounded off ', total_price_with_tax)
+
         # ---> Getting restaurant id
         res = get_restaurants(to_number)
         # ---> Adding the customer in the database
         customer_id = add_customer(res.id, order['customer_name'], from_number)
+        print('added the customer ', customer_id)
+
         # ---> Adding the customer order in the database using below
         # ---> function of order package. It returns bot id and order id
         order['total_price_with_tax'] = total_price_with_tax
@@ -248,10 +263,14 @@ def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode)
             sales_tax,
             total_price_with_tax
         )
+        print('added the order ', order_id)
+
         # ---> Adding the customer in the database
         conversation_id = add_conversation(res.id, customer_id, Conversation_template)
+        print('added the conversation_ ', conversation_id)
 
         send_order_to_pos(order_id, res.id, is_test_mode)
+        print('send_order_to_pos')
     except Exception as e:
         print('Exception ERROR', e)
         message_body = 'Error in sending order to POS'

@@ -40,7 +40,7 @@ def load_embeddings_and_lines(pickle_path):
 
 def find_similar_texts(query_text, lines, embeddings, similarity_threshold=0.4, top_n=5):
     client = openai.Client(api_key=config.OPEN_AI_API_KEY)
-    query_text = query_text + "\n" + "Modifier Group information"
+    #query_text = query_text + "\n" + "Modifier Group information"
 
     print('find_similar_texts for ', query_text)
     # Generate query embedding
