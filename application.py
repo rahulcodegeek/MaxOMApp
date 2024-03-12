@@ -253,7 +253,6 @@ def activities(conversation_id):
             calling_phone_number = data['activities'][0]['parameters']['caller']
             print('restaurant_phone_number and calling_phone_number fetched from the start event payload as ',
                   restaurant_phone_number, calling_phone_number)
-
             store.hset(conversation_id, 'first_message', "True")
             store.hset(conversation_id, 'to_number', str(restaurant_phone_number))
             store.hset(conversation_id, 'from_number', str(calling_phone_number))
@@ -305,7 +304,9 @@ def activities(conversation_id):
                 formatted_history.append({"role": "user", "content": user_query})
                 store.rpush(conversation_id+'-user_mes', json.dumps({"role": "user", "content": user_query}))
                 # reply, status_code = conversation(formatted_history, conversation_id)
-                reply, status_code = langchain_conversation(conversation_dictionary['to_number'], user_query,
+                reply, status_code = langchain_conversation(conversation_dictionary['to_number'],
+                                                            conversation_id,
+                                                            user_query,
                                                             formatted_history)
 
                 print('welcome_message from chat is ', reply)
@@ -318,7 +319,7 @@ def activities(conversation_id):
             elif len(conversation_dictionary) != 0 and conversation_dictionary['first_message'] == "False":
                 # ---> Get the speech recognition result
                 history = store.lrange(conversation_id + '-user_mes', 0, -1)
-
+                print('history is ', history)
                 # Deserialize the messages
                 formatted_history = []
                 for message_str in history:
@@ -340,7 +341,9 @@ def activities(conversation_id):
                 formatted_history.append({"role": "user", "content": user_query})
                 store.rpush(conversation_id + '-user_mes', json.dumps({"role": "user", "content": user_query}))
 
-                reply, status_code = langchain_conversation(conversation_dictionary['to_number'], user_query,
+                reply, status_code = langchain_conversation(conversation_dictionary['to_number'],
+                                                            conversation_id,
+                                                            user_query,
                                                             formatted_history)
 
                 # with open("./resources/" + conversation_id + ".json", 'r') as file:
@@ -485,15 +488,15 @@ def place_order(conversation_id):
     from_ = conversation_dictionary['from_number']
     to_ = conversation_dictionary['to_number']
 
-    def local_persist_and_send_order_to_pos(local_history, local_from, local_to, local_is_test_mode):
+    def local_persist_and_send_order_to_pos(local_history, local_from, local_to, local_is_test_mode, local_conversation_id):
         with application.test_request_context():
-            persist_and_send_order_to_pos(local_history, local_from, local_to, local_is_test_mode)
+            persist_and_send_order_to_pos(local_history, local_from, local_to, local_is_test_mode, local_conversation_id)
 
     # ---> Sending payment message to customer
     thread = threading.Thread(
         target=local_persist_and_send_order_to_pos,
         args=(
-            formatted_history, from_, to_, is_test_mode
+            formatted_history, from_, to_, is_test_mode, conversation_id
         )
     )
 

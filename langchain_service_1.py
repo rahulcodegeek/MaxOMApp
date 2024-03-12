@@ -7,7 +7,10 @@ import pickle
 from db_persisters.restaurants import get_restaurants
 import json
 import copy
+import os
+import redis
 
+store = redis.Redis.from_url(os.environ.get('REDIS_URL'))
 def create_embeddings(restaurant_phone_number):
     res = get_restaurants(restaurant_phone_number)
     pickle_path = "./resources/Retrievers/" + str(res.id) + "_Retriever" + ".pkl"
@@ -64,7 +67,7 @@ def find_similar_texts(query_text, lines, embeddings, similarity_threshold=0.4, 
 
     return top_similar_texts
 
-def langchain_conversation(restaurant_number, user_query, history):
+def langchain_conversation(restaurant_number, conversation_id, user_query, history):
     query_with_history = ""
     res = get_restaurants(restaurant_number)
     restaurant_information = json.loads(res.information_json)
@@ -85,24 +88,33 @@ def langchain_conversation(restaurant_number, user_query, history):
     try:
         lines, embeddings = load_embeddings_and_lines(pickle_path)
         similar_texts = find_similar_texts(user_query, lines, embeddings)
+        print('Found similar number of items:', len(similar_texts))
+        print('Found similar number of items:', similar_texts)
 
-        in_context_menu_items = []
-        print('found similar number of items ', similar_texts)
+        # Push each similar text into the Redis list
         for text, score in similar_texts:
             print(f"Score: {score:.4f}, Text: {text}")
-            in_context_menu_items.append(f"{text}")
+            print('Pushing ', text, ' to cache with key ', conversation_id + '-in-context-menu-items')
+            # Ensure we're inserting a string representation of the text
+            store.lpush(conversation_id + '-in-context-menu-items', text)
 
-        in_context_menu_items_str = '\n'.join(in_context_menu_items)
+        # Retrieve all items from the Redis list
+        in_context_menu_items = store.lrange(conversation_id + '-in-context-menu-items', 0, -1)
+        print('Pulling items from cache ', conversation_id + '-in-context-menu-items ', in_context_menu_items)
 
-        print('replacing {context} in prompt with  ', in_context_menu_items_str)
-        print('replacing {question} in prompt with  ', user_query)
+        in_context_menu_items_str = '\n'.join([item for item in in_context_menu_items])
+
+        print('Replacing {context} in prompt with ', in_context_menu_items_str)
+        print('Replacing {question} in prompt with ', user_query)
 
         data = data.replace("{context}", in_context_menu_items_str)
         data = data.replace("{question}", user_query)
 
         query_with_history = copy.deepcopy(history)
 
-        query_with_history.insert(0, {"role": "system", "content": data})
+        query_with_history.insert(0, {"role": "assistant", "content": data})
+
+        print('sending the query_with_history as ***', query_with_history)
 
         client = OpenAI(api_key=config.OPEN_AI_API_KEY)
 

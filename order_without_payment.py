@@ -16,10 +16,9 @@ from db_persisters.conversation import add_conversation, Make_conversation_templ
 import base64
 import rsa
 from database import privateKey
+from langchain_service_1 import store
 
-
-
-# --- A function that converts the current order into the json format using ChatGpt 
+# --- A function that converts the current order into the json format using ChatGpt
 def order_query(history):
     # ---> Prompt for the ChatGpt to return the current order in json format given below in the prompt  
     Order_Query = """"Return the current order in the below format and don't add anything else other than the given format
@@ -222,9 +221,34 @@ def get_order(order, baseURL, headers):
 
 
 # --- A function to retrieve order from the database and add it to clover once payment is successful
-def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode):
+def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode, conversation_id):
     order_id = None
     try:
+        res = get_restaurants(to_number)
+        restaurant_information = json.loads(res.information_json)
+        prompt_file = open('./resources/langchain_prompt.txt')
+        pickle_path = "./resources/Retrievers/" + str(res.id) + "_Retriever" + ".pkl"
+        data = prompt_file.read()
+        data = data.replace("{name}", res.name)
+        data = data.replace("{timings}", restaurant_information['timings'])
+        data = data.replace(
+            "{representative_name}", restaurant_information['representative_name']
+        )
+        data = data.replace("{address}", restaurant_information['address'])
+        data = data.replace(
+            "{today_special}", restaurant_information['today_special']
+        )
+        prompt_file.close()
+
+        in_context_menu_items = store.lrange(conversation_id + '-in-context-menu-items', 0, -1)
+        print('Pulling items from cache ', conversation_id + '-in-context-menu-items ', in_context_menu_items)
+
+        in_context_menu_items_str = '\n'.join([item for item in in_context_menu_items])
+        print('Replacing {context} in prompt with ', in_context_menu_items_str)
+
+        data = data.replace("{context}", in_context_menu_items_str)
+        history.insert(0, {"role": "assistant", "content": data})
+
         print('persist_and_send_order_to_pos.....')
         Conversation_template = Make_conversation_template(history)
         print('Conversation_template ', Conversation_template)
@@ -299,11 +323,16 @@ def send_order_to_pos(order_id, res_id, is_test_mode):
         'Content-type': 'application/json',
         "authorization": f'Bearer {auth}'
     }
+
+    print('json order is ', json_order)
+
     # ---> Create order and grab order ID
     customer_name = json_order['customer_name'] # This customer name could be sometimes different from the one stored in the customer table
     #Example if same phone numer is being used by husband and wife to place the order..
     order = create_order(baseURL, headers, customer_name, customer_entry, is_test_mode)
+    print('base order created in clover ', order)
     data_items = json_order['order']
+
     for item in data_items:
         for i in range(int(item['item_quantity'])):
             # ---> First getting the item from the clover which is in
@@ -319,14 +348,15 @@ def send_order_to_pos(order_id, res_id, is_test_mode):
                 add_modifier_in_line_item(order, item, inlineItem['id'], baseURL, headers)
     # ---> Open the order so its visible on other devices
     open_order(order, baseURL, headers)
+    print('order opened in clover ', order)
     #add_discount(order['id'], baseURL, headers)
 
     # ---> Getting Order
     clover_order = get_order(order, baseURL, headers)
-    print(clover_order)
+    print('clover_order fetched ' , clover_order)
     clover_order_id = clover_order['id']
     print("Clover Order ID is ", clover_order_id)
     print_status = print_event(clover_order_id, baseURL, headers)
     add_pos_order(order_id, clover_order_id, print_status)
-
+    print("Added POS Order to database")
     return "Success"
