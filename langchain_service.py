@@ -1,5 +1,4 @@
 from langchain.chat_models import ChatOpenAI
-import utils.config as config
 from langchain.prompts.prompt import PromptTemplate
 from langchain.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -9,16 +8,19 @@ from langchain.chains import RetrievalQA
 from db_persisters.restaurants import get_restaurants
 from db_persisters.restaurants import get_restaurants
 import json
+import os
+
+open_ai_api_key = os.environ.get('OPEN_AI_API_KEY')
 
 llm = ChatOpenAI(
-    openai_api_key=config.OPEN_AI_API_KEY,
+    openai_api_key=open_ai_api_key,
     temperature=0,
     model="gpt-4-0125-preview"
 )
 
 embeddings = OpenAIEmbeddings(
    model="text-embedding-ada-002",
-   openai_api_key=config.OPEN_AI_API_KEY
+   openai_api_key=open_ai_api_key
 )
 
 

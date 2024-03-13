@@ -2,7 +2,6 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from openai import OpenAI
 import openai
-import utils.config as config
 import pickle
 from db_persisters.restaurants import get_restaurants
 import json
@@ -11,14 +10,15 @@ import os
 import redis
 
 store = redis.Redis.from_url(os.environ.get('REDIS_URL'))
+open_ai_api_key = os.environ.get('OPEN_AI_API_KEY')
+
 def create_embeddings(restaurant_phone_number):
     res = get_restaurants(restaurant_phone_number)
     pickle_path = "./resources/Retrievers/" + str(res.id) + "_Retriever" + ".pkl"
     menu_file = "./resources/"+str(res.id)+"_menu.txt"
     embeddings = []  # List to store embeddings
     lines = []  # List to store the lines corresponding to the embeddings
-    #TODO : Create an emv variable OPEN_AI_API_KEY and replace following with os.environ.get('OPEN_AI_API_KEY')
-    client = OpenAI(api_key=config.OPEN_AI_API_KEY)
+    client = OpenAI(api_key=open_ai_api_key)
     # Read the file and generate embeddings
     with open(menu_file, 'r', encoding='utf-8') as file:
         for menu_item in file:
@@ -42,7 +42,7 @@ def load_embeddings_and_lines(pickle_path):
     return data['lines'], np.array(data['embeddings'])
 
 def find_similar_texts(query_text, lines, embeddings, similarity_threshold=0.4, top_n=5):
-    client = openai.Client(api_key=config.OPEN_AI_API_KEY)
+    client = openai.Client(api_key=open_ai_api_key)
     #query_text = query_text + "\n" + "Modifier Group information"
 
     print('find_similar_texts for ', query_text)
@@ -116,7 +116,7 @@ def langchain_conversation(restaurant_number, conversation_id, user_query, histo
 
         print('sending the query_with_history as ***', query_with_history)
 
-        client = OpenAI(api_key=config.OPEN_AI_API_KEY)
+        client = OpenAI(api_key=open_ai_api_key)
 
         chat = client.chat.completions.create(
             model="gpt-4-0125-preview",

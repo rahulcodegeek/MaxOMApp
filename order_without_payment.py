@@ -3,10 +3,8 @@ import requests
 from db_persisters.orders import get_order_by_order_id
 from openai import OpenAI
 import openai
-import utils.config as config
 from db_persisters.restaurant_system_configuration import \
     get_restaurants_configuration
-from db_persisters.restaurants import get_restaurants
 from db_persisters.customer import get_customers_by_id
 from db_persisters.orders import add_order
 from db_persisters.customer import add_customer
@@ -17,7 +15,9 @@ import base64
 import rsa
 from database import privateKey
 from langchain_service_1 import store
+import os
 
+open_ai_api_key = os.environ.get('OPEN_AI_API_KEY')
 # --- A function that converts the current order into the json format using ChatGpt
 def order_query(history):
     # ---> Prompt for the ChatGpt to return the current order in json format given below in the prompt  
@@ -50,7 +50,7 @@ def order_query(history):
     history.append({"role": "user", "content": user_query})
     # --> Calling ChatGpt Api and return its reply with status 200 if successful otherwise return with status 502
     try:
-        client = OpenAI(api_key=config.OPEN_AI_API_KEY)
+        client = OpenAI(api_key=open_ai_api_key)
 
         chat = client.chat.completions.create(
             model="gpt-4-0125-preview",

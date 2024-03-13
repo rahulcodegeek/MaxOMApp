@@ -19,7 +19,7 @@ from database import privateKey
 def create_checkout_session(bill_id, bill_amount, order_id, res_id):
     # --- Setting Stripe API key for payment purpose
     res_config = get_restaurants_configuration(res_id)
-    stripe.api_key = rsa.decrypt(
+    stripe.open_ai_api_key = rsa.decrypt(
         base64.b64decode(res_config.payment_api_key),
         privateKey
     ).decode()
