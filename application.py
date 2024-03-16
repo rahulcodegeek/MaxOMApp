@@ -1,10 +1,11 @@
 from datetime import datetime, time
 import pytz
 from database import db
+
 from flask import Flask, request, session, render_template, send_file
 from flask_session import Session
 from flask_cors import CORS
-from twilio.twiml.voice_response import VoiceResponse
+#from flask_socketio import SocketIO, send, emit, Namespace
 import threading
 from db_persisters.restaurants import add_restaurant, get_restaurants
 from db_persisters.restaurant_system_configuration import add_restaurant_configuration
@@ -42,6 +43,8 @@ application.config['SESSION_REDIS'] = redis.Redis.from_url(os.environ.get('REDIS
 Session(application)
 # --- Enable CORS for all routes in the app
 CORS(application)
+
+#socketio = SocketIO(application, cors_allowed_origins="*")
 
 store = redis.Redis.from_url(os.environ.get('REDIS_URL'))
 # --- Enable database
@@ -81,13 +84,26 @@ def voice():
 
     conversation_id = data['conversation']
 
+    # websocket_namespace = f'/conversation/' + conversation_id + '/async_socket'
+    #
+    #
+    # if not socketio.server.namespace_handlers.get(websocket_namespace):
+    #     socketio.on_namespace(DynamicNamespace(websocket_namespace))
+    #     print(f'Namespace {websocket_namespace} created')
+    #     store.hset(conversation_id, 'websocket_namespace', str(websocket_namespace))
+    #     print(f'Opened the websocket at {websocket_namespace}')
+    # else:
+    #     print(f'Namespace {websocket_namespace} already exists')
+
     data = {
         'activitiesURL': 'conversation/' + conversation_id + '/activities',
         'refreshURL': 'conversation/' + conversation_id + '/refresh',
         'disconnectURL': 'conversation/' + conversation_id + '/disconnect',
+        #'websocketURL': websocket_namespace,
         'expiresSeconds': 60
     }
     data = json.dumps(data)
+    print('data being sent back ', str(data))
     return str(data)
 
 
@@ -382,6 +398,11 @@ def activities(conversation_id):
                 #if store.hgetall(conversation_id)['order'] == 'Confirm':
                 #    normal_response = form_response_with_hangup(reply)
                 #else:
+                filler_response = form_response('Certainly, just a moment while I gather the necessary details for you.')
+                # ws_namespace = conversation_dictionary['websocket_namespace']
+                # socketio.emit('message', str(filler_response), namespace=ws_namespace)
+                # print('Sending the filler response...',  str(filler_response), ' at the websocket ', ws_namespace)
+
                 normal_response = form_response(reply)
                 print('returning normal_response from the respective block ', normal_response)
                 return str(normal_response)
@@ -403,6 +424,7 @@ def activities(conversation_id):
         redirect_response = form_redirection_response(redirection_number)
         print("Restaurant is closed right now so, redirecting the call to ", redirection_number)
         return str(redirect_response)
+
 
 def form_hangup_response(reason):
     hangup_response = {
@@ -541,6 +563,13 @@ def is_restaurant_open(restaurant_opening_time, restaurant_closing_time, timezon
 def is_restaurant_open_temp(restaurant_opening_time, restaurant_closing_time, timezone_str):
     return True
 
+# class DynamicNamespace(Namespace):
+#     def on_connect(self):
+#         print(f'Client connected to {request.namespace}')
+#
+#     def on_disconnect(self):
+#         print(f'Client disconnected from {request.namespace}')
 
 if __name__ == '__main__':
     application.run(debug=True)
+    #socketio.run(application, logger=True, engineio_logger=True)

@@ -69,3 +69,5 @@ zipp==3.17.0
 pickle-mixin==1.0.2
 cosine_similarity==0.1.2
 scikit-learn
+flask_socketio
+eventlet
