@@ -1,10 +1,10 @@
 import json
 import requests
 from db_persisters.orders import get_order_by_order_id
-from openai import ChatCompletion, OpenAIError
+from openai import OpenAI
+import openai
 from db_persisters.restaurant_system_configuration import \
     get_restaurants_configuration
-from db_persisters.restaurants import get_restaurants
 from db_persisters.customer import get_customers_by_id
 from db_persisters.orders import add_order
 from db_persisters.customer import add_customer
@@ -14,10 +14,11 @@ from db_persisters.conversation import add_conversation, Make_conversation_templ
 import base64
 import rsa
 from database import privateKey
+from langchain_service_1 import store
+import os
 
-
-
-# --- A function that converts the current order into the json format using ChatGpt 
+open_ai_api_key = os.environ.get('OPEN_AI_API_KEY')
+# --- A function that converts the current order into the json format using ChatGpt
 def order_query(history):
     # ---> Prompt for the ChatGpt to return the current order in json format given below in the prompt  
     Order_Query = """"Return the current order in the below format and don't add anything else other than the given format
@@ -49,10 +50,15 @@ def order_query(history):
     history.append({"role": "user", "content": user_query})
     # --> Calling ChatGpt Api and return its reply with status 200 if successful otherwise return with status 502
     try:
-        chat = ChatCompletion.create(model="gpt-4-1106-preview", messages=history)
+        client = OpenAI(api_key=open_ai_api_key)
+
+        chat = client.chat.completions.create(
+            model="gpt-4-0125-preview",
+            messages=history
+        )
         reply = chat.choices[0].message.content
         status = 200
-    except OpenAIError as e:
+    except Exception as e:
         print(e)
         reply = "Sorry for inconvenience eight. I am connecting you to the actual agent wait for some moments."
         status = 502
@@ -215,23 +221,63 @@ def get_order(order, baseURL, headers):
 
 
 # --- A function to retrieve order from the database and add it to clover once payment is successful
-def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode):
+def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode, conversation_id):
     order_id = None
     try:
+        res = get_restaurants(to_number)
+        restaurant_information = json.loads(res.information_json)
+        prompt_file = open('./resources/langchain_prompt.txt')
+        pickle_path = "./resources/Retrievers/" + str(res.id) + "_Retriever" + ".pkl"
+        data = prompt_file.read()
+        data = data.replace("{name}", res.name)
+        data = data.replace("{timings}", restaurant_information['timings'])
+        data = data.replace(
+            "{representative_name}", restaurant_information['representative_name']
+        )
+        data = data.replace("{address}", restaurant_information['address'])
+        data = data.replace(
+            "{today_special}", restaurant_information['today_special']
+        )
+        prompt_file.close()
+
+        in_context_menu_items = store.lrange(conversation_id + '-in-context-menu-items', 0, -1)
+        print('Pulling items from cache ', conversation_id + '-in-context-menu-items ', in_context_menu_items)
+
+        in_context_menu_items_str = '\n'.join([item for item in in_context_menu_items])
+        print('Replacing {context} in prompt with ', in_context_menu_items_str)
+
+        data = data.replace("{context}", in_context_menu_items_str)
+        history.insert(0, {"role": "assistant", "content": data})
+
+        print('persist_and_send_order_to_pos.....')
         Conversation_template = Make_conversation_template(history)
+        print('Conversation_template ', Conversation_template)
         order, status_code = order_query(history)
+        print('order ', order)
         tax_rate = get_tax_rate(to_number)
+        print('tax_rate ', tax_rate)
         tax_rate_percentage = tax_rate/100000
         # ---> Calculating tax on order
         price = order['total_price']
+        print('price of the order ', price)
         nm_price = ''.join(c for c in price if c.isdigit() or c == '.')
+        print('nm_price ', nm_price)
+
         sales_tax = (float(tax_rate_percentage) / float(100)) * float(nm_price)
+        print('sales_tax ', sales_tax)
+
         total_price_with_tax = float(nm_price) + float(sales_tax)
+        print('total_price_with_tax ', total_price_with_tax)
+
         total_price_with_tax = round(total_price_with_tax, 2)
+        print('total_price_with_tax rounded off ', total_price_with_tax)
+
         # ---> Getting restaurant id
         res = get_restaurants(to_number)
         # ---> Adding the customer in the database
         customer_id = add_customer(res.id, order['customer_name'], from_number)
+        print('added the customer ', customer_id)
+
         # ---> Adding the customer order in the database using below
         # ---> function of order package. It returns bot id and order id
         order['total_price_with_tax'] = total_price_with_tax
@@ -241,10 +287,14 @@ def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode)
             sales_tax,
             total_price_with_tax
         )
+        print('added the order ', order_id)
+
         # ---> Adding the customer in the database
         conversation_id = add_conversation(res.id, customer_id, Conversation_template)
+        print('added the conversation_ ', conversation_id)
 
         send_order_to_pos(order_id, res.id, is_test_mode)
+        print('send_order_to_pos')
     except Exception as e:
         print('Exception ERROR', e)
         message_body = 'Error in sending order to POS'
@@ -273,11 +323,16 @@ def send_order_to_pos(order_id, res_id, is_test_mode):
         'Content-type': 'application/json',
         "authorization": f'Bearer {auth}'
     }
+
+    print('json order is ', json_order)
+
     # ---> Create order and grab order ID
     customer_name = json_order['customer_name'] # This customer name could be sometimes different from the one stored in the customer table
     #Example if same phone numer is being used by husband and wife to place the order..
     order = create_order(baseURL, headers, customer_name, customer_entry, is_test_mode)
+    print('base order created in clover ', order)
     data_items = json_order['order']
+
     for item in data_items:
         for i in range(int(item['item_quantity'])):
             # ---> First getting the item from the clover which is in
@@ -293,14 +348,15 @@ def send_order_to_pos(order_id, res_id, is_test_mode):
                 add_modifier_in_line_item(order, item, inlineItem['id'], baseURL, headers)
     # ---> Open the order so its visible on other devices
     open_order(order, baseURL, headers)
+    print('order opened in clover ', order)
     #add_discount(order['id'], baseURL, headers)
 
     # ---> Getting Order
     clover_order = get_order(order, baseURL, headers)
-    print(clover_order)
+    print('clover_order fetched ' , clover_order)
     clover_order_id = clover_order['id']
     print("Clover Order ID is ", clover_order_id)
     print_status = print_event(clover_order_id, baseURL, headers)
     add_pos_order(order_id, clover_order_id, print_status)
-
+    print("Added POS Order to database")
     return "Success"
