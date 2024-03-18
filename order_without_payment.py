@@ -102,7 +102,7 @@ def get_tax_rate(restaurant_number):
         "authorization": f'Bearer {auth}'
     }
     #TODO - to be replaced from the dynamic configuration
-    url = baseURL + "tax_rates/N4XN9PJCV8460"
+    url = baseURL + "tax_rates/ZTHZAY1P1Q7B2"
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         res = json.loads(response.text)

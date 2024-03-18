@@ -174,11 +174,11 @@ def persist_menu(restaurant_id, fetched_menu):
             # TODO - configure this modifiers_list per the restaurant too..
             modifi_groups_information[md_group['name']] = {
                 "Modifier Group Id": md_group['id'],
-                "Mild": "6YZ0NQMQ6E4D6",
-                "Medium": "XE06JV8H5Q7E0",
-                "Medium Hot": "VP34EZYQNJ4XT",
-                "Hot": "4ET59HN040664",
-                "Very Hot": "HBZ08PW79QND6"
+                "Mild": "3340TJEFKA1KW",
+                "Medium": "E4SZA971ANNAT",
+                "Medium Hot": "DFPJSS8XX6FCR",
+                "Hot": "DM6473ZMTVXFA",
+                "Very Hot": "Y3MJRPBY5V2GC"
             }
         elif (md_group['name'].lower() == 'NO_PICKUP'.lower()):
             items_to_exclude, status = fetch_remote_menu(
