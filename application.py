@@ -262,33 +262,33 @@ def activities(conversation_id):
                 if len(conversation_dictionary) != 0 and conversation_dictionary['first_message'] == "True" and status_code == 200:
                     # ---> First Hard code Query
                     print('first_message is True, so flowing through first_message block')
-                    # first_user_query = "Hi"
-                    # # ---> Getting reply from
-                    # user_query = first_user_query + ' (refer to context)'
-                    # print('user_query for chat is ', user_query)
-                    # print('user_query is for session_id', conversation_id)
-                    # # --> Getting previous conversation
-                    # history = store.lrange(conversation_id+'-user_mes', 0, -1)
-                    #
-                    # # Deserialize the messages
-                    # formatted_history = []
-                    # for message_str in history:
-                    #     message = json.loads(message_str)
-                    #     formatted_history.append(message)
-                    #
-                    # formatted_history.append({"role": "user", "content": user_query})
-                    # store.rpush(conversation_id+'-user_mes', json.dumps({"role": "user", "content": user_query}))
-                    # reply, status_code = langchain_conversation(conversation_dictionary['to_number'],
-                    #                                             conversation_id,
-                    #                                             user_query,
-                    #                                             formatted_history)
-                    #
-                    # print('welcome_message from chat is ', reply)
-                    # print('welcome_message is for session_id', conversation_id)
-                    # # --> Storing updated conversation
-                    #
-                    # history.append({"role": "assistant", "content": reply})
-                    # store.rpush(conversation_id+'-user_mes', json.dumps({"role": "assistant", "content": reply}))
+                    first_user_query = "Hi"
+                    # ---> Getting reply from
+                    user_query = first_user_query + ' (refer to context)'
+                    print('user_query for chat is ', user_query)
+                    print('user_query is for session_id', conversation_id)
+                    # --> Getting previous conversation
+                    history = store.lrange(conversation_id+'-user_mes', 0, -1)
+
+                    # Deserialize the messages
+                    formatted_history = []
+                    for message_str in history:
+                        message = json.loads(message_str)
+                        formatted_history.append(message)
+
+                    formatted_history.append({"role": "user", "content": user_query})
+                    store.rpush(conversation_id+'-user_mes', json.dumps({"role": "user", "content": user_query}))
+                    reply, status_code = langchain_conversation(conversation_dictionary['to_number'],
+                                                                conversation_id,
+                                                                user_query,
+                                                                formatted_history)
+
+                    print('welcome_message from chat is ', reply)
+                    print('welcome_message is for session_id', conversation_id)
+                    # --> Storing updated conversation
+
+                    history.append({"role": "assistant", "content": reply})
+                    store.rpush(conversation_id+'-user_mes', json.dumps({"role": "assistant", "content": reply}))
                     store.hset(conversation_id, 'first_message', "False")
                 elif len(conversation_dictionary) != 0 and conversation_dictionary['first_message'] == "False":
                     # ---> Get the speech recognition result

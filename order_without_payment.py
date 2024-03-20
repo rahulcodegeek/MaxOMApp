@@ -116,7 +116,10 @@ def create_order(baseURL, headers, customer_name, customer_entry, is_test_mode):
     url = baseURL + 'orders'
     note = ''
     testMode = 'false'
-    if(is_test_mode):
+
+    is_test_mode_to_lower_case = is_test_mode.lower()
+
+    if("true" in is_test_mode_to_lower_case):
         note = 'A Test Order'
         testMode = 'true'
     else:

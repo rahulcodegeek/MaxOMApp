@@ -83,6 +83,9 @@ def langchain_conversation(restaurant_number, conversation_id, user_query, histo
     data = data.replace(
         "{today_special}", restaurant_information['today_special']
     )
+    data = data.replace(
+        "{welcome_message}", restaurant_information['welcome_message']
+    )
     prompt_file.close()
 
     try:
