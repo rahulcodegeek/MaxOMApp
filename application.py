@@ -303,13 +303,18 @@ def activities(conversation_id):
                     user_query = data['activities'][0]['text']
                     user_query_to_lower_case = user_query.lower()
                     #forward the call to the redirection number in case the user has mentioned any of the following words
-                    if ("agent" in user_query_to_lower_case or "customer service" in user_query_to_lower_case
-                            or "human" in user_query_to_lower_case or "family biryani pack" in user_query_to_lower_case
+                    if ("agent" in user_query_to_lower_case
+                            or "customer service" in user_query_to_lower_case
+                            or "human" in user_query_to_lower_case
+                            or "family biryani pack" in user_query_to_lower_case
                             or "biryani pack" in user_query_to_lower_case
                             or "family" in user_query_to_lower_case
                             or "representative" in user_query_to_lower_case
-                            or "Can I speak to someone?" in user_query_to_lower_case
-                            or "Can I speak to someone else?" in user_query_to_lower_case):
+                            or "can i speak to someone?" in user_query_to_lower_case
+                            or "Can i speak to someone else?" in user_query_to_lower_case
+                            or "uber eats"  in user_query_to_lower_case
+                            or "door dash" in user_query_to_lower_case
+                            or "doordash" in user_query_to_lower_case):
                         redirect_response = form_redirection_response(conversation_dictionary['redirection_number'])
                         print('returning redirect_response  ', redirect_response)
                         return str(redirect_response)
