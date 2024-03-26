@@ -363,9 +363,6 @@ def activities(conversation_id):
                 print("Restaurant is closed right now so, redirecting the call")
                 print('returning redirect_response  ', redirect_response)
                 return str(redirect_response)
-        else:
-            print('returning {}')
-            return json.dumps("{}")
 
     except Exception as e:
         traceback.print_exc()
