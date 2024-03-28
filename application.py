@@ -230,8 +230,8 @@ def activities(conversation_id):
     conversation_id = data['conversation']
 
     reply = ''
-    restaurant_opening_time = time(9, 00)
-    restaurant_closing_time = time(11, 30)
+    restaurant_opening_time = time(16, 00)
+    restaurant_closing_time = time(23, 30)
     print("Restaurant timings are between ", restaurant_opening_time, restaurant_closing_time)
     try:
         if (data['activities'][0]['type'] == 'message' or
@@ -247,6 +247,7 @@ def activities(conversation_id):
                 store.hset(conversation_id, 'to_number', str(restaurant_phone_number))
                 store.hset(conversation_id, 'from_number', str(calling_phone_number))
                 store.hset(conversation_id, 'order', 'Not-Confirm')
+                store.hset(conversation_id, 'transfer_call_status', 'False')
                 redirection_number = get_restaurants(restaurant_phone_number).redirection_phone_number
                 store.hset(conversation_id, 'redirection_number', str(redirection_number))
                 conversation_dictionary = store.hgetall(conversation_id)
@@ -320,6 +321,7 @@ def activities(conversation_id):
                                 or "real person" in user_query_to_lower_case
                                 or "can i talk to some one" in user_query_to_lower_case
                                 or "can i talk to someone" in user_query_to_lower_case):
+                            store.hset(conversation_id, 'transfer_call_status', 'True')
                             redirect_response = form_redirection_response(conversation_dictionary['redirection_number'])
                             print('returning redirect_response  ', redirect_response)
                             return str(redirect_response)
@@ -359,10 +361,22 @@ def activities(conversation_id):
                         print('returning normal_response from the respective block ', normal_response)
                         return str(normal_response)
             else:
-                redirect_response = form_redirection_response(conversation_dictionary['redirection_number'])
-                print("Restaurant is closed right now so, redirecting the call")
-                print('returning redirect_response  ', redirect_response)
-                return str(redirect_response)
+                if conversation_dictionary['transfer_call_status'] == 'False':
+                    print('conversation_dictionary[transfer_call_status] is False so, playing the default message')
+                    store.hset(conversation_id, 'transfer_call_status', 'True')
+                    normal_response = form_response("As a digital assistant, I am unable to serve you at this time, please let me know if you want your call to be transferred to the restaurant")
+                    return str(normal_response)
+                else:
+                    print('conversation_dictionary[transfer_call_status] is True so, initiating the call transfer')
+                    redirect_response = form_redirection_response(conversation_dictionary['redirection_number'])
+                    print("Restaurant is closed right now so, redirecting the call")
+                    print('returning redirect_response  ', redirect_response)
+                    return str(redirect_response)
+        else:
+            print('As per the current implementation the flow should only come here in case of transferStatus event')
+            #TODO evaluate the transferStatus and persist this status also in the database
+            normal_response = form_response("{}")
+            return str(normal_response)
 
     except Exception as e:
         traceback.print_exc()
@@ -432,7 +446,7 @@ def form_redirection_response(redirection_number):
                 'activityParams': {
                     'transferTarget': 'tel:'+redirection_number,
                     'transferNotifications': True,
-                    'transferNotificationsHangupMS': 20000
+                    'transferNotificationsHangupMS': 2000
                 }
             }
         ]
