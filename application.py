@@ -247,7 +247,6 @@ def activities(conversation_id):
                 store.hset(conversation_id, 'to_number', str(restaurant_phone_number))
                 store.hset(conversation_id, 'from_number', str(calling_phone_number))
                 store.hset(conversation_id, 'order', 'Not-Confirm')
-                store.hset(conversation_id, 'transfer_call_status', 'False')
                 redirection_number = get_restaurants(restaurant_phone_number).redirection_phone_number
                 store.hset(conversation_id, 'redirection_number', str(redirection_number))
                 conversation_dictionary = store.hgetall(conversation_id)
@@ -305,23 +304,16 @@ def activities(conversation_id):
                         user_query = data['activities'][0]['text']
                         user_query_to_lower_case = user_query.lower()
                         #forward the call to the redirection number in case the user has mentioned any of the following words
-                        if ("agent" in user_query_to_lower_case
-                                or "customer service" in user_query_to_lower_case
-                                or "human" in user_query_to_lower_case
-                                or "family biryani pack" in user_query_to_lower_case
-                                or "biryani pack" in user_query_to_lower_case
-                                or "family" in user_query_to_lower_case
-                                or "representative" in user_query_to_lower_case
-                                or "can i speak to someone?" in user_query_to_lower_case
-                                or "can i speak to someone else?" in user_query_to_lower_case
-                                or "uber eats"  in user_query_to_lower_case
-                                or "door dash" in user_query_to_lower_case
-                                or "doordash" in user_query_to_lower_case
-                                or "crab calling" in user_query_to_lower_case
-                                or "real person" in user_query_to_lower_case
-                                or "can i talk to some one" in user_query_to_lower_case
-                                or "can i talk to someone" in user_query_to_lower_case):
-                            store.hset(conversation_id, 'transfer_call_status', 'True')
+
+                        call_redirection_phrase_match = ['agent', 'customer service', 'human', 'family biryani pack',
+                                                         'biryani pack', 'family',
+                                                         'representative', 'can i speak to someone',
+                                                         'can i speak to someone else', 'uber eats',
+                                                         'door dash', 'doordash', 'crab calling',
+                                                         'real person', 'can i talk to some one',
+                                                         'can i talk to someone']
+
+                        if (any(ele in user_query_to_lower_case for ele in call_redirection_phrase_match)):
                             redirect_response = form_redirection_response(conversation_dictionary['redirection_number'])
                             print('returning redirect_response  ', redirect_response)
                             return str(redirect_response)
@@ -361,17 +353,9 @@ def activities(conversation_id):
                         print('returning normal_response from the respective block ', normal_response)
                         return str(normal_response)
             else:
-                if conversation_dictionary['transfer_call_status'] == 'False':
-                    print('conversation_dictionary[transfer_call_status] is False so, playing the default message')
-                    store.hset(conversation_id, 'transfer_call_status', 'True')
-                    normal_response = form_response("As a digital assistant, I am unable to serve you at this time, please let me know if you want your call to be transferred to the restaurant")
-                    return str(normal_response)
-                else:
-                    print('conversation_dictionary[transfer_call_status] is True so, initiating the call transfer')
-                    redirect_response = form_redirection_response(conversation_dictionary['redirection_number'])
-                    print("Restaurant is closed right now so, redirecting the call")
-                    print('returning redirect_response  ', redirect_response)
-                    return str(redirect_response)
+                redirect_response = form_redirection_response(conversation_dictionary['redirection_number'])
+                print('returning redirect_response  ', redirect_response)
+                return str(redirect_response)
         else:
             print('As per the current implementation the flow should only come here in case of transferStatus event')
             #TODO evaluate the transferStatus and persist this status also in the database
@@ -438,6 +422,13 @@ def form_response_with_hangup(reply):
 def form_redirection_response(redirection_number):
     redirect_response = {
         'activities': [
+            {
+                'id': str(uuid.uuid4()),
+                'timestamp': datetime.utcnow().isoformat(),
+                'language': 'en-US',
+                'type': 'message',
+                'text': 'Transferring your call'
+            },
             {
                 'id': str(uuid.uuid4()),
                 'timestamp': datetime.utcnow().isoformat(),
