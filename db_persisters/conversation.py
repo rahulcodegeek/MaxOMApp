@@ -30,7 +30,7 @@ def add_conversation(restaurant_id, customer_id, conversation_text):
 
 
 # --- Function to get the conversation in proper format
-def Make_conversation_template(history):
+def make_conversation_template(history):
     conversation = ""
     for item in history[2:]:
         role = item['role']

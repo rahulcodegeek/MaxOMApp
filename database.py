@@ -432,3 +432,29 @@ class pos_order(db.Model):
         self.clover_order_id = clover_order_id
         self.print_status = print_status
         self.created_date = datetime.now(timezone.utc)
+
+# --- Call Logs table to store the call logs in the database
+class call_logs(db.Model):
+    # --> Stores the id of call logs
+    id = db.Column(db.Integer, primary_key=True)
+    # --> Stores the restaurant id associate with call logs
+    restaurant_id = db.Column(
+        db.Integer, db.ForeignKey('restaurant.id'), nullable=False
+    )
+    # --> Stores the conversation id
+    conversation_id = db.Column(db.String(64), nullable=False)
+    # --> Stores the status of the call
+    status = db.Column(db.String(32), nullable=False)
+    # --> Stores the reason of the call ends
+    reason = db.Column(db.String(1024), nullable=False)
+    # --> Stores the creation date
+    created_date = db.Column(
+        db.DateTime, nullable=False
+    )
+
+    def __init__(self, restaurant_id, conversation_id, status, reason):
+        self.restaurant_id = restaurant_id
+        self.conversation_id = conversation_id
+        self.status = status
+        self.reason = reason
+        self.created_date = datetime.now(timezone.utc)

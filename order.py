@@ -5,7 +5,7 @@ from openai import ChatCompletion, OpenAIError
 from db_persisters.restaurant_system_configuration import \
     get_restaurants_configuration
 from db_persisters.restaurants import get_restaurants
-from db_persisters.customer import get_customers_by_id
+from db_persisters.customer import get_customer_by_id
 import base64
 import rsa
 from database import privateKey
@@ -220,7 +220,7 @@ def send_order_to_clover(order_id, res_id):
         "authorization": f'Bearer {auth}'
     }
     # ---> Create order and grab order ID
-    customer = get_customers_by_id(current_order.customer_id)
+    customer = get_customer_by_id(current_order.customer_id)
     order = createOrder(baseURL, headers, customer.customer_name)
     data_items = json_order['order']
     for item in data_items:

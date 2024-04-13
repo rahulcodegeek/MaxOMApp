@@ -1,16 +1,20 @@
 import json
 import requests
-from db_persisters.orders import get_order_by_order_id
+
 from openai import OpenAI
-import openai
+
 from db_persisters.restaurant_system_configuration import \
     get_restaurants_configuration
-from db_persisters.customer import get_customers_by_id
-from db_persisters.orders import add_order
+from db_persisters.customer import get_customer_by_id
+from db_persisters.orders import add_order, get_order_by_order_id
 from db_persisters.customer import add_customer
 from db_persisters.restaurants import get_restaurants
+from db_persisters.call_logs import add_call_log
 from db_persisters.pos_order import add_pos_order
-from db_persisters.conversation import add_conversation, Make_conversation_template
+from db_persisters.conversation import add_conversation, make_conversation_template
+
+from call_status import CallStatus
+
 import base64
 import rsa
 from database import privateKey
@@ -253,8 +257,8 @@ def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode,
         history.insert(0, {"role": "assistant", "content": data})
 
         print('persist_and_send_order_to_pos.....')
-        Conversation_template = Make_conversation_template(history)
-        print('Conversation_template ', Conversation_template)
+        conversation_template = make_conversation_template(history)
+        print('conversation_template ', conversation_template)
         order, status_code = order_query(history)
         print('order ', order)
         tax_rate = get_tax_rate(to_number)
@@ -275,8 +279,6 @@ def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode,
         total_price_with_tax = round(total_price_with_tax, 2)
         print('total_price_with_tax rounded off ', total_price_with_tax)
 
-        # ---> Getting restaurant id
-        res = get_restaurants(to_number)
         # ---> Adding the customer in the database
         customer_id = add_customer(res.id, order['customer_name'], from_number)
         print('added the customer ', customer_id)
@@ -292,74 +294,80 @@ def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode,
         )
         print('added the order ', order_id)
 
-        # ---> Adding the customer in the database
-        conversation_id = add_conversation(res.id, customer_id, Conversation_template)
-        print('added the conversation_ ', conversation_id)
+        # ---> Adding the conversation in the database
+        persisted_conversation_id = add_conversation(res.id, customer_id, conversation_template)
+        print('added the conversation_ ', persisted_conversation_id)
 
-        send_order_to_pos(order_id, res.id, is_test_mode)
+        send_order_to_pos(order_id, res.id, is_test_mode, conversation_id)
         print('send_order_to_pos')
     except Exception as e:
         print('Exception ERROR', e)
+        add_call_log(conversation_id, res.id, CallStatus.ENDED_IN_ERROR, str(e))
         message_body = 'Error in sending order to POS'
     return order_id
 
 
-def send_order_to_pos(order_id, res_id, is_test_mode):
-    # ---> Getting restaurant bot information from database using restaurant bot id
-    res_config = get_restaurants_configuration(res_id)
-    # ---> Getting order information from database using order id
-    current_order = get_order_by_order_id(order_id)
-    print('Current order ', current_order)
-    customer_entry = get_customers_by_id(current_order.customer_id)
+def send_order_to_pos(order_id, res_id, is_test_mode, conversation_id):
+    try:
+        # ---> Getting restaurant bot information from database using restaurant bot id
+        res_config = get_restaurants_configuration(res_id)
+        # ---> Getting order information from database using order id
+        current_order = get_order_by_order_id(order_id)
+        print('Current order ', current_order)
+        customer_entry = get_customer_by_id(current_order.customer_id)
 
-    # ---> Converting string order to json
-    json_order = json.loads(current_order.order_details)
-    # ---> Getting Clover information from the restaurant bot we extracted
-    baseURL = rsa.decrypt(
-        base64.b64decode(res_config.pos_url), privateKey
-    ).decode()
-    auth = rsa.decrypt(
-        base64.b64decode(res_config.pos_authorization_header),
-        privateKey
-    ).decode()
-    headers = {
-        'Content-type': 'application/json',
-        "authorization": f'Bearer {auth}'
-    }
+        # ---> Converting string order to json
+        json_order = json.loads(current_order.order_details)
+        # ---> Getting Clover information from the restaurant bot we extracted
+        baseURL = rsa.decrypt(
+            base64.b64decode(res_config.pos_url), privateKey
+        ).decode()
+        auth = rsa.decrypt(
+            base64.b64decode(res_config.pos_authorization_header),
+            privateKey
+        ).decode()
+        headers = {
+            'Content-type': 'application/json',
+            "authorization": f'Bearer {auth}'
+        }
 
-    print('json order is ', json_order)
+        print('json order is ', json_order)
 
-    # ---> Create order and grab order ID
-    customer_name = json_order['customer_name'] # This customer name could be sometimes different from the one stored in the customer table
-    #Example if same phone numer is being used by husband and wife to place the order..
-    order = create_order(baseURL, headers, customer_name, customer_entry, is_test_mode)
-    print('base order created in clover ', order)
-    data_items = json_order['order']
+        # ---> Create order and grab order ID
+        customer_name = json_order['customer_name'] # This customer name could be sometimes different from the one stored in the customer table
+        #Example if same phone numer is being used by husband and wife to place the order..
+        order = create_order(baseURL, headers, customer_name, customer_entry, is_test_mode)
+        print('base order created in clover ', order)
+        data_items = json_order['order']
 
-    for item in data_items:
-        for i in range(int(item['item_quantity'])):
-            # ---> First getting the item from the clover which is in
-            # ---> current order
-            myItem = requests.get(
-                baseURL + 'items/' + item['item_id'],
-                headers=headers
-            ).json()
-            print()
-            # ---> Then Add it in the order which is just created
-            inlineItem = add_line_item(order, item, myItem, baseURL, headers)
-            if item['modifier_type_id'] != '':
-                add_modifier_in_line_item(order, item, inlineItem['id'], baseURL, headers)
-    # ---> Open the order so its visible on other devices
-    open_order(order, baseURL, headers)
-    print('order opened in clover ', order)
-    #add_discount(order['id'], baseURL, headers)
+        for item in data_items:
+            for i in range(int(item['item_quantity'])):
+                # ---> First getting the item from the clover which is in
+                # ---> current order
+                myItem = requests.get(
+                    baseURL + 'items/' + item['item_id'],
+                    headers=headers
+                ).json()
+                print()
+                # ---> Then Add it in the order which is just created
+                inlineItem = add_line_item(order, item, myItem, baseURL, headers)
+                if item['modifier_type_id'] != '':
+                    add_modifier_in_line_item(order, item, inlineItem['id'], baseURL, headers)
+        # ---> Open the order so its visible on other devices
+        open_order(order, baseURL, headers)
+        print('order opened in clover ', order)
+        #add_discount(order['id'], baseURL, headers)
 
-    # ---> Getting Order
-    clover_order = get_order(order, baseURL, headers)
-    print('clover_order fetched ' , clover_order)
-    clover_order_id = clover_order['id']
-    print("Clover Order ID is ", clover_order_id)
-    print_status = print_event(clover_order_id, baseURL, headers)
-    add_pos_order(order_id, clover_order_id, print_status)
-    print("Added POS Order to database")
+        # ---> Getting Order
+        clover_order = get_order(order, baseURL, headers)
+        print('clover_order fetched ' , clover_order)
+        clover_order_id = clover_order['id']
+        print("Clover Order ID is ", clover_order_id)
+        print_status = print_event(clover_order_id, baseURL, headers)
+        add_pos_order(order_id, clover_order_id, print_status)
+        print("Added POS Order to database")
+        message = 'MaxOM Order Id - ' + str(order_id) + 'POS Order Id -' + str(clover_order_id)
+        add_call_log(conversation_id, res_id, CallStatus.COMPLETED, message)
+    except Exception as e:
+        add_call_log(conversation_id, res_id, CallStatus.ENDED_IN_ERROR, str(e))
     return "Success"

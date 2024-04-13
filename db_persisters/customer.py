@@ -26,7 +26,7 @@ def get_customers_by_res_id(restaurant_id):
 
 
 # --- Function to get the customer using customer id
-def get_customers_by_id(_id):
+def get_customer_by_id(_id):
     new_customer = customer.query.filter_by(
         id=_id
     ).first()
@@ -34,6 +34,12 @@ def get_customers_by_id(_id):
 
 
 # --- Function to add the customer in the database
+def update_customer_name(customer_id, customer_name):
+    existing_customer = get_customer_by_id(customer_id)
+    if existing_customer.customer_name == 'Guest':
+        existing_customer.customer_name = customer_name
+        db.session.commit()
+
 def add_customer(restaurant_id, customer_name, customer_phone_number):
     existing_customer = get_customer_by_number(customer_phone_number)
     if not existing_customer:
@@ -45,4 +51,6 @@ def add_customer(restaurant_id, customer_name, customer_phone_number):
         db.session.add(new_customer)
         db.session.commit()
         return new_customer.id
-    return existing_customer.id
+    else:
+        update_customer_name(existing_customer.id, customer_name)
+        return existing_customer.id

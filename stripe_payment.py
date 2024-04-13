@@ -5,7 +5,7 @@ from db_persisters.orders import add_order
 from db_persisters.customer import add_customer
 from db_persisters.restaurants import get_restaurants
 from db_persisters.payment_message import add_payment_message
-from db_persisters.conversation import add_conversation, Make_conversation_template
+from db_persisters.conversation import add_conversation, make_conversation_template
 from db_persisters.restaurant_system_configuration import \
     get_restaurants_configuration
 import base64
@@ -99,7 +99,7 @@ ${round(price, 2)}"
 # --- message alone with the stripe url to customer phone number
 def send_stripe_payment_message(session_id, from_number, to_number, history):
     try:
-        Conversation_template = Make_conversation_template(history)
+        conversation_template = make_conversation_template(history)
         order, status_code = order_query(history)
         tax_rate = gettaxrate(from_number)
         tax_rate_percentage = tax_rate/100000
@@ -124,7 +124,7 @@ def send_stripe_payment_message(session_id, from_number, to_number, history):
         )
         # ---> Adding the customer in the database
         customer_id = add_conversation(
-            res.id, customer_id, Conversation_template
+            res.id, customer_id, conversation_template
         )
         # ---> Getting order information along with total price
         order_data, total_price = get_order_information(
