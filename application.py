@@ -256,7 +256,7 @@ def activities(conversation_id):
     restaurant_opening_time = time(16, 00)
     restaurant_closing_time = time(23, 30)
     print("Restaurant timings are between ", restaurant_opening_time, restaurant_closing_time)
-    if "callee" in data['activities'][0]['parameters']:
+    if 'parameters' in data['activities'][0] and 'callee' in data['activities'][0]['parameters']:
         res = get_restaurants(data['activities'][0]['parameters']['callee'])
     else:
         conversation_dictionary = store.hgetall(conversation_id)
@@ -340,6 +340,9 @@ def activities(conversation_id):
                         user_query_to_lower_case = user_query.lower()
                         #forward the call to the redirection number in case the user has mentioned any of the following words
 
+                        formatted_history.append({"role": "user", "content": user_query})
+                        store.rpush(conversation_id + '-user_mes', json.dumps({"role": "user", "content": user_query}))
+
                         call_redirection_phrase_match = ['agent', 'customer service', 'human', 'family biryani pack',
                                                          'biryani pack', 'family',
                                                          'representative', 'can i speak to someone',
@@ -355,9 +358,6 @@ def activities(conversation_id):
                             return str(redirect_response)
 
                         print('user_query is normal conversation is ', user_query)
-
-                        formatted_history.append({"role": "user", "content": user_query})
-                        store.rpush(conversation_id + '-user_mes', json.dumps({"role": "user", "content": user_query}))
 
                         reply, status_code = langchain_conversation(conversation_dictionary['to_number'],
                                                                     conversation_id,
