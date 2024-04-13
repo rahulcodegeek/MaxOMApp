@@ -367,7 +367,7 @@ def send_order_to_pos(order_id, res_id, is_test_mode, conversation_id):
         add_pos_order(order_id, clover_order_id, print_status)
         print("Added POS Order to database")
         message = 'MaxOM Order Id - ' + str(order_id) + 'POS Order Id -' + str(clover_order_id)
-        add_call_log(conversation_id, res_id, CallStatus.COMPLETED, message)
+        add_call_log(conversation_id, res_id, CallStatus.COMPLETED_WITH_AN_ORDER, message)
     except Exception as e:
         add_call_log(conversation_id, res_id, CallStatus.ENDED_IN_ERROR, str(e))
     return "Success"
