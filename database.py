@@ -20,13 +20,13 @@ class restaurant(db.Model):
     # --> Stores the id of restaurant
     id = db.Column(db.Integer, primary_key=True)
     # --> Stores the name of the restaurant
-    name = db.Column(db.String(200), nullable=False)
+    name = db.Column(db.String(128), nullable=False)
     # --> Stores the unique phone number of the restaurant
-    phone_number = db.Column(db.String(200), unique=True, nullable=False)
+    phone_number = db.Column(db.String(16), unique=True, nullable=False)
     # --> Stores the redirecting phone number
-    redirection_phone_number = db.Column(db.String(100), nullable=False)
+    redirection_phone_number = db.Column(db.String(16), nullable=False)
     # --> Stores the restaurant information
-    information_json = db.Column(db.String(500), nullable=False)
+    information_json = db.Column(db.String(1024), nullable=False)
     # --> Stores the creation date
     created_date = db.Column(
         db.DateTime, nullable=False
@@ -79,13 +79,13 @@ class restaurant_audit_trail(db.Model):
         db.Integer, db.ForeignKey('restaurant.id'), nullable=False
     )
     # --> Stores the name of the restaurant
-    name = db.Column(db.String(200), nullable=False)
+    name = db.Column(db.String(128), nullable=False)
     # --> Stores the unique phone number of the restaurant
-    phone_number = db.Column(db.String(200), nullable=False)
+    phone_number = db.Column(db.String(16), nullable=False)
     # --> Stores the redirecting phone number
-    redirection_phone_number = db.Column(db.String(100), nullable=False)
+    redirection_phone_number = db.Column(db.String(16), nullable=False)
     # --> Stores the restaurant information
-    information_json = db.Column(db.String(500), nullable=False)
+    information_json = db.Column(db.String(1024), nullable=False)
     # --> Stores the creation date
     created_date = db.Column(
         db.DateTime, nullable=False
@@ -111,13 +111,13 @@ class restaurant_system_configuration(db.Model):
         db.Integer, db.ForeignKey('restaurant.id'), nullable=False
     )
     # --> Stores the point of sale type of the restaurant
-    pos_type = db.Column(db.String(200), nullable=False)
+    pos_type = db.Column(db.String(32), nullable=False)
     # --> Stores the url of the point of sale
-    pos_url = db.Column(db.String(1000), nullable=False)
+    pos_url = db.Column(db.String(512), nullable=False)
     # --> Stores the authentication of the point of sale
-    pos_authorization_header = db.Column(db.String(1000), nullable=False)
+    pos_authorization_header = db.Column(db.String(512), nullable=False)
     # --> Stores the tax rate code of the point of sale
-    pos_tax_rate_code = db.Column(db.String(32), nullable=False)
+    pos_tax_rate_code = db.Column(db.String(512), nullable=False)
     # --> Stores type of the voice api
     voice_api_type = db.Column(db.String(500), nullable=False)
     # --> Stores sid of the voice api
@@ -201,13 +201,13 @@ class restaurant_system_configuration_audit_trail (db.Model):
         nullable=False
     )
     # --> Stores the point of sale type of the restaurant
-    pos_type = db.Column(db.String(200), nullable=False)
+    pos_type = db.Column(db.String(32), nullable=False)
     # --> Stores the url of the point of sale
-    pos_url = db.Column(db.String(1000), nullable=False)
+    pos_url = db.Column(db.String(512), nullable=False)
     # --> Stores the authentication of the point of sale
-    pos_authorization_header = db.Column(db.String(1000), nullable=False)
+    pos_authorization_header = db.Column(db.String(512), nullable=False)
     # --> Stores the tax rate code of the point of sale
-    pos_tax_rate_code = db.Column(db.String(32), nullable=False)
+    pos_tax_rate_code = db.Column(db.String(512), nullable=False)
     # --> Stores type of the voice api
     voice_api_type = db.Column(db.String(500), nullable=False)
     # --> Stores sid of the voice api
@@ -281,19 +281,13 @@ class customer(db.Model):
     # --> Stores the id of customer
     id = db.Column(db.Integer, primary_key=True)
     # --> Stores the restaurant id associate with customer
-    restaurant_id = db.Column(
-        db.Integer, db.ForeignKey('restaurant.id'), nullable=False
-    )
+    restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'), nullable=False)
     # --> Stores the name of the customer
-    customer_name = db.Column(db.String(200), nullable=False)
+    customer_name = db.Column(db.String(32), nullable=False)
     # --> Stores the phone number of customer
-    customer_phone_number = db.Column(
-        db.String(100), unique=True, nullable=False
-    )
+    customer_phone_number = db.Column(db.String(16), unique=True, nullable=False)
     # --> Stores the creation date
-    created_date = db.Column(
-        db.DateTime, nullable=False
-    )
+    created_date = db.Column(db.DateTime, nullable=False)
 
     def __init__(self, restaurant_id, customer_name,
                  customer_phone_number):
@@ -319,11 +313,11 @@ class order_info(db.Model):
     # --> Stores the complete order_info
     order_details = db.Column(db.String(5000), nullable=False)
     # --> Stores the total price of order
-    order_price = db.Column(db.String(200), nullable=False)
+    order_price = db.Column(db.String(16), nullable=False)
     # --> Stores the tax price of order
-    order_tax = db.Column(db.String(200), nullable=False)
+    order_tax = db.Column(db.String(16), nullable=False)
     # --> Stores the total price of order including tax
-    total_price = db.Column(db.String(200), nullable=False)
+    total_price = db.Column(db.String(16), nullable=False)
     # --> Stores the creation date
     created_date = db.Column(
         db.DateTime, nullable=False
@@ -439,9 +433,9 @@ class pos_order(db.Model):
         nullable=False
     )
     # --> Stores the clover order id
-    clover_order_id = db.Column(db.String(1000), nullable=False)
+    clover_order_id = db.Column(db.String(32), nullable=False)
     # --> Stores the logs of payment
-    print_status = db.Column(db.String(1000), nullable=False)
+    print_status = db.Column(db.String(16), nullable=False)
     # --> Stores the creation date
     created_date = db.Column(
         db.DateTime, nullable=False
@@ -466,7 +460,7 @@ class call_logs(db.Model):
     # --> Stores the status of the call
     status = db.Column(db.String(32), nullable=False)
     # --> Stores the reason of the call ends
-    reason = db.Column(db.String(1024), nullable=False)
+    reason = db.Column(db.String(256), nullable=False)
     # --> Stores the creation date
     created_date = db.Column(
         db.DateTime, nullable=False

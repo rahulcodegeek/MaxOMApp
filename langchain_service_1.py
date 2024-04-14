@@ -91,13 +91,13 @@ def langchain_conversation(restaurant_number, conversation_id, user_query, histo
     try:
         lines, embeddings = load_embeddings_and_lines(pickle_path)
         similar_texts = find_similar_texts(user_query, lines, embeddings)
-        print('Found similar number of items:', len(similar_texts))
-        print('Found similar number of items:', similar_texts)
+        #print('Found similar number of items:', len(similar_texts))
+        #print('Found similar number of items:', similar_texts)
 
         # Push each similar text into the Redis list
         for text, score in similar_texts:
-            print(f"Score: {score:.4f}, Text: {text}")
-            print('Pushing ', text, ' to cache with key ', conversation_id + '-in-context-menu-items')
+            #print(f"Score: {score:.4f}, Text: {text}")
+            #print('Pushing ', text, ' to cache with key ', conversation_id + '-in-context-menu-items')
             # Ensure we're inserting a string representation of the text
             store.lpush(conversation_id + '-in-context-menu-items', text)
 
