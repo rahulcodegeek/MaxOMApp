@@ -55,6 +55,10 @@ class restaurant(db.Model):
     payment_messages = db.relationship(
         'payment_message', backref='owner'
     )
+    # --> Defining relationship with call_logs
+    call_logs = db.relationship(
+        'call_logs', backref='owner'
+    )
 
     # ---> Function to initialize a restaurant
     def __init__(self, name, phone_number, redirection_phone_number,
