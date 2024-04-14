@@ -101,12 +101,15 @@ def get_tax_rate(restaurant_number):
         base64.b64decode(res_config.pos_authorization_header),
         privateKey
     ).decode()
+    pos_tax_rate_code = rsa.decrypt(
+        base64.b64decode(res_config.pos_tax_rate_code),
+        privateKey
+    ).decode()
     headers = {
         'Content-type': 'application/json',
         "authorization": f'Bearer {auth}'
     }
-    #TODO - to be replaced from the dynamic configuration
-    url = baseURL + "tax_rates/ZTHZAY1P1Q7B2"
+    url = baseURL + "tax_rates/" + pos_tax_rate_code
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         res = json.loads(response.text)

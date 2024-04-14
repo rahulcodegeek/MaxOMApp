@@ -12,7 +12,8 @@ def get_restaurant_system_configuration_audit_trail(restaurant_id):
 
 # --- Function to add the restaurant configuration audit in the database
 def add_restaurant_system_configuration_audit_trail(
-        restaurant_id, pos_type, pos_url, pos_authorization_header,
+        restaurant_id,
+        pos_type, pos_url, pos_authorization_header, pos_tax_rate_code,
         voice_api_type, voice_api_account_sid, voice_api_account_auth_token,
         payment_api_key, payment_secret):
     new_config = restaurant_system_configuration_audit_trail(
@@ -20,6 +21,7 @@ def add_restaurant_system_configuration_audit_trail(
         pos_type=pos_type,
         pos_url=pos_url,
         pos_authorization_header=pos_authorization_header,
+        pos_tax_rate_code=pos_tax_rate_code,
         voice_api_type=voice_api_type,
         voice_api_account_sid=voice_api_account_sid,
         voice_api_account_auth_token=voice_api_account_auth_token,

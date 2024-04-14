@@ -15,20 +15,18 @@ def get_restaurants_configuration(restaurant_id):
 
 
 # --- Function to add the restaurant configuration in the database
-def add_restaurant_configuration(restaurant_id, pos_type, pos_url,
-                                 pos_authorization_header, voice_api_type,
-                                 voice_api_account_sid,
-                                 voice_api_account_auth_token,
+def add_restaurant_configuration(restaurant_id,
+                                 pos_type, pos_url, pos_authorization_header, pos_tax_rate_code,
+                                 voice_api_type, voice_api_account_sid, voice_api_account_auth_token,
                                  payment_api_key, payment_secret):
     existing_res = get_restaurants_configuration(restaurant_id)
     if not existing_res:
         # ---> Initializing a new restaurant system configuration
         new_restaurant_configuration = restaurant_system_configuration(
-            restaurant_id, pos_type,
-            pos_url, pos_authorization_header,
-            voice_api_type, voice_api_account_sid,
-            voice_api_account_auth_token, payment_api_key,
-            payment_secret,
+            restaurant_id,
+            pos_type, pos_url, pos_authorization_header, pos_tax_rate_code,
+            voice_api_type, voice_api_account_sid, voice_api_account_auth_token,
+            payment_api_key, payment_secret,
         )
         # ---> Adding in the database
         db.session.add(new_restaurant_configuration)
@@ -36,18 +34,26 @@ def add_restaurant_configuration(restaurant_id, pos_type, pos_url,
 
 
 # --- Function to update the restaurant configuration in the database
-def update_restaurant_config(restaurant_id, pos_type, pos_url,
-                             pos_authorization_header, voice_api_type,
-                             voice_api_account_sid,
-                             voice_api_account_auth_token,
+def update_restaurant_config(existing_id, restaurant_id,
+                             pos_type, pos_url, pos_authorization_header, pos_tax_rate_code,
+                             voice_api_type, voice_api_account_sid, voice_api_account_auth_token,
                              payment_api_key, payment_secret):
-    res_config = get_restaurants_configuration(restaurant_id)
+    res_config = get_restaurants_configuration(existing_id)
     en_pos_url = rsa.decrypt(
         base64.b64decode(res_config.pos_url), privateKey
     ).decode()
     en_pos_authorization_header = rsa.decrypt(
         base64.b64decode(res_config.pos_authorization_header), privateKey
     ).decode()
+
+    try:
+        en_pos_tax_rate_code = rsa.decrypt(
+            base64.b64decode(res_config.pos_tax_rate_code), privateKey
+        ).decode()
+    except:
+        print('Unable to decode pos_tax_rate_code')
+        en_pos_tax_rate_code = 'Unable to decode pos_tax_rate_code'
+
     en_voice_api_account_sid = rsa.decrypt(
         base64.b64decode(res_config.voice_api_account_sid), privateKey
     ).decode()
@@ -62,11 +68,13 @@ def update_restaurant_config(restaurant_id, pos_type, pos_url,
         base64.b64decode(res_config.payment_secret), privateKey
     ).decode()
     add_restaurant_system_configuration_audit_trail(
-        res_config.id, res_config.pos_type, en_pos_url,
-        en_pos_authorization_header, res_config.voice_api_type,
-        en_voice_api_account_sid, en_voice_api_account_auth_token,
+        res_config.id,
+        res_config.pos_type, en_pos_url, en_pos_authorization_header, en_pos_tax_rate_code,
+        res_config.voice_api_type, en_voice_api_account_sid, en_voice_api_account_auth_token,
         en_payment_api_key, en_payment_secret
     )
+
+    res_config.restaurant_id = restaurant_id
     res_config.pos_type = pos_type
     res_config.pos_url = base64.b64encode(
         rsa.encrypt(
@@ -77,6 +85,12 @@ def update_restaurant_config(restaurant_id, pos_type, pos_url,
     res_config.pos_authorization_header = base64.b64encode(
         rsa.encrypt(
             pos_authorization_header.encode(),
+            key
+        )
+    ).decode('utf-8')
+    res_config.pos_tax_rate_code = base64.b64encode(
+        rsa.encrypt(
+            pos_tax_rate_code.encode(),
             key
         )
     ).decode('utf-8')

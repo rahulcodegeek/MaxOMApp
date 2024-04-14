@@ -112,6 +112,8 @@ class restaurant_system_configuration(db.Model):
     pos_url = db.Column(db.String(1000), nullable=False)
     # --> Stores the authentication of the point of sale
     pos_authorization_header = db.Column(db.String(1000), nullable=False)
+    # --> Stores the tax rate code of the point of sale
+    pos_tax_rate_code = db.Column(db.String(32), nullable=False)
     # --> Stores type of the voice api
     voice_api_type = db.Column(db.String(500), nullable=False)
     # --> Stores sid of the voice api
@@ -132,9 +134,9 @@ class restaurant_system_configuration(db.Model):
     )
 
     # ---> Function to initialize a restaurant system configuration
-    def __init__(self, restaurant_id, pos_type, pos_url,
-                 pos_authorization_header, voice_api_type,
-                 voice_api_account_sid, voice_api_account_auth_token,
+    def __init__(self, restaurant_id,
+                 pos_type, pos_url, pos_authorization_header, pos_tax_rate_code,
+                 voice_api_type, voice_api_account_sid, voice_api_account_auth_token,
                  payment_api_key, payment_secret):
         self.restaurant_id = restaurant_id
         self.pos_type = pos_type
@@ -147,6 +149,12 @@ class restaurant_system_configuration(db.Model):
         self.pos_authorization_header = base64.b64encode(
             rsa.encrypt(
                 pos_authorization_header.encode(),
+                key
+            )
+        ).decode('utf-8')
+        self.pos_tax_rate_code = base64.b64encode(
+            rsa.encrypt(
+                pos_tax_rate_code.encode(),
                 key
             )
         ).decode('utf-8')
@@ -194,6 +202,8 @@ class restaurant_system_configuration_audit_trail (db.Model):
     pos_url = db.Column(db.String(1000), nullable=False)
     # --> Stores the authentication of the point of sale
     pos_authorization_header = db.Column(db.String(1000), nullable=False)
+    # --> Stores the tax rate code of the point of sale
+    pos_tax_rate_code = db.Column(db.String(32), nullable=False)
     # --> Stores type of the voice api
     voice_api_type = db.Column(db.String(500), nullable=False)
     # --> Stores sid of the voice api
@@ -210,9 +220,9 @@ class restaurant_system_configuration_audit_trail (db.Model):
     )
 
     # ---> Function to initialize a restaurant system configuration
-    def __init__(self, restaurant_id, pos_type, pos_url,
-                 pos_authorization_header, voice_api_type,
-                 voice_api_account_sid, voice_api_account_auth_token,
+    def __init__(self, restaurant_id,
+                 pos_type, pos_url, pos_authorization_header, pos_tax_rate_code,
+                 voice_api_type, voice_api_account_sid, voice_api_account_auth_token,
                  payment_api_key, payment_secret):
         self.restaurant_id = restaurant_id
         self.pos_type = pos_type
@@ -225,6 +235,12 @@ class restaurant_system_configuration_audit_trail (db.Model):
         self.pos_authorization_header = base64.b64encode(
             rsa.encrypt(
                 pos_authorization_header.encode(),
+                key
+            )
+        ).decode('utf-8')
+        self.pos_tax_rate_code = base64.b64encode(
+            rsa.encrypt(
+                pos_tax_rate_code.encode(),
                 key
             )
         ).decode('utf-8')

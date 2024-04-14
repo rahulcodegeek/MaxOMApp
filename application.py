@@ -116,6 +116,7 @@ def add_restaurant_database():
     pos_type = data['pos_type']
     pos_url = data['pos_url']
     pos_authorization_header = data['pos_authorization_header']
+    pos_tax_rate_code = data['pos_tax_rate_code']
     voice_api_type = data['voice_api_type']
     voice_api_account_sid = data['voice_api_account_sid']
     voice_api_account_auth_token = data['voice_api_account_auth_token']
@@ -128,7 +129,8 @@ def add_restaurant_database():
     )
     res = get_restaurants(phone_number)
     add_restaurant_configuration(
-        res.id, pos_type, pos_url, pos_authorization_header,
+        res.id,
+        pos_type, pos_url, pos_authorization_header, pos_tax_rate_code,
         voice_api_type, voice_api_account_sid, voice_api_account_auth_token,
         payment_api_key, payment_secret
     )
