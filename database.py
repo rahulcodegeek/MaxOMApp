@@ -196,7 +196,7 @@ class restaurant_system_configuration_audit_trail (db.Model):
     # --> Stores the id of restaurant system configuration
     id = db.Column(db.Integer, primary_key=True)
     # --> Stores the restaurant id associate with configuration
-    restaurant_id = db.Column(
+    restaurant_system_configuration_id = db.Column(
         db.Integer, db.ForeignKey('restaurant_system_configuration.id'),
         nullable=False
     )
@@ -224,11 +224,11 @@ class restaurant_system_configuration_audit_trail (db.Model):
     )
 
     # ---> Function to initialize a restaurant system configuration
-    def __init__(self, restaurant_id,
+    def __init__(self, restaurant_system_configuration_id,
                  pos_type, pos_url, pos_authorization_header, pos_tax_rate_code,
                  voice_api_type, voice_api_account_sid, voice_api_account_auth_token,
                  payment_api_key, payment_secret):
-        self.restaurant_id = restaurant_id
+        self.restaurant_system_configuration_id = restaurant_system_configuration_id
         self.pos_type = pos_type
         self.pos_url = base64.b64encode(
             rsa.encrypt(

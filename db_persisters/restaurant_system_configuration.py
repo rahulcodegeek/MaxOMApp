@@ -85,7 +85,7 @@ def update_restaurant_config(existing_id, restaurant_id,
         en_payment_api_key, en_payment_secret
     )
 
-    res_config.restaurant_id = restaurant_id
+    res_config.restaurant_system_configuration_id = restaurant_id
     res_config.pos_type = pos_type
     res_config.pos_url = base64.b64encode(
         rsa.encrypt(

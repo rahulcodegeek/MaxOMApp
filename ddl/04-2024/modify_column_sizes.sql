@@ -21,3 +21,4 @@ ALTER TABLE `order_info` CHANGE `order_tax` `order_tax` VARCHAR(16) CHARACTER SE
 ALTER TABLE `order_info` CHANGE `total_price` `total_price` VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
 ALTER TABLE `pos_order` CHANGE `clover_order_id` `clover_order_id` VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
 ALTER TABLE `pos_order` CHANGE `print_status` `print_status` VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
+ALTER TABLE `restaurant_system_configuration_audit_trail` CHANGE `restaurant__configuration_id` `restaurant_system_configuration_id` int NOT NULL;
