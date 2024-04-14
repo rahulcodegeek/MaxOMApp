@@ -5,8 +5,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import pickle
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.chains import RetrievalQA
-from db_persisters.restaurants import get_restaurants
-from db_persisters.restaurants import get_restaurants
+from db_persisters.restaurants import get_restaurant
+from db_persisters.restaurants import get_restaurant
 import json
 import os
 
@@ -25,7 +25,7 @@ embeddings = OpenAIEmbeddings(
 
 
 def create_embeddings(restaurant_phone_number):
-    res = get_restaurants(restaurant_phone_number)
+    res = get_restaurant(restaurant_phone_number)
     local_retriever_path = "./resources/Retrievers/" + str(res.id) + "_Retriever" + ".pkl"
     menu_file = open("./resources/"+str(res.id)+"_menu.txt")
     data = menu_file.read()
@@ -42,7 +42,7 @@ def create_embeddings(restaurant_phone_number):
 
 def langchain_conversation(restaurant_number, retriever_path, user_query, history):
     query = ""
-    res = get_restaurants(restaurant_number)
+    res = get_restaurant(restaurant_number)
     restaurant_information = json.loads(res.information_json)
     prompt_file = open('./resources/langchain_prompt.txt')
     data = prompt_file.read()

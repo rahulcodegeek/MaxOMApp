@@ -8,7 +8,7 @@ from db_persisters.restaurant_system_configuration import \
 from db_persisters.customer import get_customer_by_id
 from db_persisters.orders import add_order, get_order_by_order_id
 from db_persisters.customer import add_customer
-from db_persisters.restaurants import get_restaurants
+from db_persisters.restaurants import get_restaurant
 from db_persisters.call_logs import add_call_log
 from db_persisters.pos_order import add_pos_order
 from db_persisters.conversation import add_conversation, make_conversation_template
@@ -92,7 +92,7 @@ def extract_order_json(input_string):
 
 
 def get_tax_rate(restaurant_number):
-    res = get_restaurants(restaurant_number)
+    res = get_restaurant(restaurant_number)
     res_config = get_restaurants_configuration(res.id)
     baseURL = rsa.decrypt(
         base64.b64decode(res_config.pos_url), privateKey
@@ -234,7 +234,7 @@ def get_order(order, baseURL, headers):
 def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode, conversation_id):
     order_id = None
     try:
-        res = get_restaurants(to_number)
+        res = get_restaurant(to_number)
         restaurant_information = json.loads(res.information_json)
         prompt_file = open('./resources/langchain_prompt.txt')
         pickle_path = "./resources/Retrievers/" + str(res.id) + "_Retriever" + ".pkl"

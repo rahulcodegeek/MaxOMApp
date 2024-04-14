@@ -1,12 +1,12 @@
 from menu_service import load_menu
-from db_persisters.restaurants import get_restaurants
+from db_persisters.restaurants import get_restaurant
 import json
 
 
 # --- Creating a prompt for each restaurant using the restaurant information which is extracted using restaurant id
 def create_prompt_data(restaurant_phone_number):
     # ---> Reading properties of the restaurant using the restaurant id
-    res = get_restaurants(restaurant_phone_number)
+    res = get_restaurant(restaurant_phone_number)
     restaurant_information = json.loads(res.information_json)
     prompt_file = open('resources/prompt.txt')
     # ---> Loading the menu using the load_menu function of menu service module

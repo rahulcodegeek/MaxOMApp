@@ -4,7 +4,7 @@ from db_persisters.orders import get_order_by_order_id
 from openai import ChatCompletion, OpenAIError
 from db_persisters.restaurant_system_configuration import \
     get_restaurants_configuration
-from db_persisters.restaurants import get_restaurants
+from db_persisters.restaurants import get_restaurant
 from db_persisters.customer import get_customer_by_id
 import base64
 import rsa
@@ -77,7 +77,7 @@ def extract_order_json(input_string):
 
 
 def gettaxrate(restaurant_number):
-    res = get_restaurants(restaurant_number)
+    res = get_restaurant(restaurant_number)
     res_config = get_restaurants_configuration(res.id)
     baseURL = rsa.decrypt(
         base64.b64decode(res_config.pos_url), privateKey

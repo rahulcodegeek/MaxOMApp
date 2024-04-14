@@ -3,7 +3,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from openai import OpenAI
 import openai
 import pickle
-from db_persisters.restaurants import get_restaurants
+from db_persisters.restaurants import get_restaurant
 import json
 import copy
 import os
@@ -13,7 +13,7 @@ store = redis.Redis.from_url(os.environ.get('REDIS_URL'))
 open_ai_api_key = os.environ.get('OPEN_AI_API_KEY')
 
 def create_embeddings(restaurant_phone_number):
-    res = get_restaurants(restaurant_phone_number)
+    res = get_restaurant(restaurant_phone_number)
     pickle_path = "./resources/Retrievers/" + str(res.id) + "_Retriever" + ".pkl"
     menu_file = "./resources/"+str(res.id)+"_menu.txt"
     embeddings = []  # List to store embeddings
@@ -69,7 +69,7 @@ def find_similar_texts(query_text, lines, embeddings, similarity_threshold=0.4, 
 
 def langchain_conversation(restaurant_number, conversation_id, user_query, history):
     query_with_history = ""
-    res = get_restaurants(restaurant_number)
+    res = get_restaurant(restaurant_number)
     restaurant_information = json.loads(res.information_json)
     prompt_file = open('./resources/langchain_prompt.txt')
     pickle_path = "./resources/Retrievers/" + str(res.id) + "_Retriever" + ".pkl"

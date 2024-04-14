@@ -3,7 +3,7 @@ from twilio.rest import Client
 from order import order_query, gettaxrate
 from db_persisters.orders import add_order
 from db_persisters.customer import add_customer
-from db_persisters.restaurants import get_restaurants
+from db_persisters.restaurants import get_restaurant
 from db_persisters.payment_message import add_payment_message
 from db_persisters.conversation import add_conversation, make_conversation_template
 from db_persisters.restaurant_system_configuration import \
@@ -110,7 +110,7 @@ def send_stripe_payment_message(session_id, from_number, to_number, history):
         total_price_with_tax = float(nm_price) + float(sales_tax)
         total_price_with_tax = round(total_price_with_tax, 2)
         # ---> Getting restaurant id
-        res = get_restaurants(from_number)
+        res = get_restaurant(from_number)
         # ---> Adding the customer in the database
         customer_id = add_customer(res.id, order['customer_name'], to_number)
         # ---> Adding the customer order in the database using below
