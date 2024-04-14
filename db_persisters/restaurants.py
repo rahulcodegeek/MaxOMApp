@@ -10,8 +10,8 @@ def get_restaurants(number):
 
 
 # --- Function to get the restaurant using restaurant id
-def get_restaurants_by_id(res_id):
-    restaurant_entry =  restaurant.query.filter_by(id=res_id).first()
+def get_restaurants_by_id(restaurant_id):
+    restaurant_entry = restaurant.query.filter_by(id=restaurant_id).first()
     return restaurant_entry
 
 
@@ -30,20 +30,24 @@ def add_restaurant(name, phone_number, redirection_phone_number,
         # ---> Adding in the database
         db.session.add(new_restaurant)
         db.session.commit()
-    return phone_number
+        persisted_restaurant = get_restaurants(phone_number)
+        return persisted_restaurant.id
+    else:
+        update_restaurant(existing_res.id, name, phone_number,
+                          redirection_phone_number, information_json)
+        return existing_res.id
 
 
 # --- Function to update the restaurant in the database
 def update_restaurant(restaurant_id, name, phone_number,
                       redirection_phone_number, information_json):
-    res = get_restaurants_by_id(restaurant_id)
+    restaurant = get_restaurants_by_id(restaurant_id)
     add_restaurant_audit_trail(
-        res.id, res.name, res.phone_number,
-        res.redirection_phone_number,
-        res.information_json
+        restaurant.id, restaurant.name, restaurant.phone_number, restaurant.redirection_phone_number,
+        restaurant.information_json
     )
-    res.name = name
-    res.phone_number = phone_number
-    res.redirection_phone_number = redirection_phone_number
-    res.information_json = information_json
+    restaurant.name = name
+    restaurant.phone_number = phone_number
+    restaurant.redirection_phone_number = redirection_phone_number
+    restaurant.information_json = json.dumps(information_json)
     db.session.commit()

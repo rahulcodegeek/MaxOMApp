@@ -13,6 +13,12 @@ def get_restaurants_configuration(restaurant_id):
     ).first()
     return restaurant
 
+# --- Function to get the restaurant configuration using restaurant id
+def get_restaurants_configuration_by_id(id):
+    restaurant = restaurant_system_configuration.query.filter_by(
+        id=id
+    ).first()
+    return restaurant
 
 # --- Function to add the restaurant configuration in the database
 def add_restaurant_configuration(restaurant_id,
@@ -31,6 +37,11 @@ def add_restaurant_configuration(restaurant_id,
         # ---> Adding in the database
         db.session.add(new_restaurant_configuration)
         db.session.commit()
+    else:
+        update_restaurant_config(existing_res.id, restaurant_id,
+                                 pos_type, pos_url, pos_authorization_header, pos_tax_rate_code,
+                                 voice_api_type, voice_api_account_sid, voice_api_account_auth_token,
+                                 payment_api_key, payment_secret)
 
 
 # --- Function to update the restaurant configuration in the database

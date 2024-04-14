@@ -3,9 +3,9 @@ from database import db, restaurant_system_configuration_audit_trail
 
 # --- Function to get a restaurant system configuration audit trail by
 # --- Restaurant ID
-def get_restaurant_system_configuration_audit_trail(restaurant_id):
+def get_restaurant_system_configuration_audit_trail(restaurant_configuration_id):
     audit = restaurant_system_configuration_audit_trail.query.filter_by(
-        restaurant_id=restaurant_id
+        restaurant_configuration_id=restaurant_configuration_id
     )
     return audit
 

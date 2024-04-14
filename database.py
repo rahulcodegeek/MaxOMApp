@@ -192,7 +192,7 @@ class restaurant_system_configuration_audit_trail (db.Model):
     # --> Stores the id of restaurant system configuration
     id = db.Column(db.Integer, primary_key=True)
     # --> Stores the restaurant id associate with configuration
-    restaurant__configuration_id = db.Column(
+    restaurant_id = db.Column(
         db.Integer, db.ForeignKey('restaurant_system_configuration.id'),
         nullable=False
     )

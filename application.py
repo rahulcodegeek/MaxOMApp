@@ -123,18 +123,19 @@ def add_restaurant_database():
     payment_api_key = data['payment_api_key']
     payment_secret = data['payment_secret']
     print('Adding restaurant to configuration...')
-    phone_number = add_restaurant(
+
+    persisted_restaurant_id = add_restaurant(
         restaurant_name, restaurant_number,
         redirecting_number, restaurant_information
     )
-    res = get_restaurants(phone_number)
     add_restaurant_configuration(
-        res.id,
+        persisted_restaurant_id,
         pos_type, pos_url, pos_authorization_header, pos_tax_rate_code,
         voice_api_type, voice_api_account_sid, voice_api_account_auth_token,
         payment_api_key, payment_secret
     )
-    initialize_application_menu(phone_number)
+
+    initialize_application_menu(restaurant_number)
     print('Menu initialized..')
     create_embeddings(restaurant_number)
     print('Embeddings initialized..')
