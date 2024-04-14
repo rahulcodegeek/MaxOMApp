@@ -18,6 +18,8 @@ from menu_service import fetch_remote_menu, persist_menu, load_menu
 from langchain_service_1 import langchain_conversation, create_embeddings
 from order_without_payment import persist_and_send_order_to_pos
 from db_persisters.call_logs import add_call_log
+from restaurant_order_timings_service import is_restaurant_open
+
 import os
 import json
 import sys
@@ -26,6 +28,26 @@ import zipfile
 import redis
 import uuid
 import traceback
+
+
+RESTAURANT_NAME_KEY = 'restaurant_name'
+RESTAURANT_NUMBER_KEY = 'restaurant_number'
+REDIRECTING_NUMBER_KEY = 'redirecting_number'
+RESTAURANT_INFORMATION_KEY = 'restaurant_information'
+
+POS_TYPE_KEY = 'pos_type'
+POS_URL_KEY = 'pos_url'
+POS_AUTHORIZATION_HEADER_KEY = 'pos_authorization_header'
+POS_TAX_RATE_CODE_KEY = 'pos_tax_rate_code'
+
+TIMINGS_KEY = 'timings'
+REPRESENTATIVE_NAME_KEY = 'representative_name'
+TODAY_SPECIAL_KEY = 'today_special'
+WELCOME_MESSAGE_KEY = 'welcome_message'
+RESTAURANT_TIMEZONE_KEY = 'restaurant_timezone'
+PHONE_ORDERS_TIME_GAP_AFTER_START_TIME = 'phone_orders_time_gap_in_minutes_after_start_time'
+PHONE_ORDERS_TIME_GAP_BEFORE_END_TIME = 'phone_orders_time_gap_in_minutes_before_end_time'
+KEY_MISSING = ' key missing'
 
 # Redirect stdout and stderr to the file object
 sys.stdout = FileLogger("./logs/output_log.txt")
@@ -107,28 +129,84 @@ def get_loaded_menu(restaurant_id):
 #    db.drop_all()
 #    return 'Database Tables Deleted'
 
+def validate_restaurant_information(restaurant_information):
+    validation_failure_reason = []
+    if TIMINGS_KEY not in restaurant_information:
+        validation_failure_reason.append(TIMINGS_KEY + KEY_MISSING)
+    if REPRESENTATIVE_NAME_KEY not in restaurant_information:
+        validation_failure_reason.append(REPRESENTATIVE_NAME_KEY + KEY_MISSING)
+    if TODAY_SPECIAL_KEY not in restaurant_information:
+        validation_failure_reason.append(TODAY_SPECIAL_KEY + KEY_MISSING)
+    if WELCOME_MESSAGE_KEY not in restaurant_information:
+        validation_failure_reason.append(WELCOME_MESSAGE_KEY + KEY_MISSING)
+    if RESTAURANT_TIMEZONE_KEY not in restaurant_information:
+        validation_failure_reason.append(RESTAURANT_TIMEZONE_KEY + KEY_MISSING)
+    if PHONE_ORDERS_TIME_GAP_AFTER_START_TIME not in restaurant_information:
+        validation_failure_reason.append(PHONE_ORDERS_TIME_GAP_AFTER_START_TIME + KEY_MISSING)
+    if PHONE_ORDERS_TIME_GAP_BEFORE_END_TIME not in restaurant_information:
+        validation_failure_reason.append(PHONE_ORDERS_TIME_GAP_BEFORE_END_TIME + KEY_MISSING)
+
+    # some extra validations
+    if RESTAURANT_TIMEZONE_KEY in restaurant_information:
+        try:
+            pytz.timezone(restaurant_information[RESTAURANT_TIMEZONE_KEY])
+        except pytz.exceptions.UnknownTimeZoneError as unknown_time_zone_error:
+            validation_failure_reason.append(str(pytz.exceptions.UnknownTimeZoneError(unknown_time_zone_error)))
+
+    phone_orders_time_gap_in_minutes_after_start_time = -1
+    phone_orders_time_gap_in_minutes_before_end_time = -1
+
+    if PHONE_ORDERS_TIME_GAP_AFTER_START_TIME in restaurant_information:
+        try:
+            phone_orders_time_gap_in_minutes_after_start_time = int(restaurant_information[PHONE_ORDERS_TIME_GAP_AFTER_START_TIME])
+
+            if phone_orders_time_gap_in_minutes_after_start_time < 0 or phone_orders_time_gap_in_minutes_after_start_time > 300:
+                validation_failure_reason.append(
+                    PHONE_ORDERS_TIME_GAP_AFTER_START_TIME + ' value should be between 0 and 300')
+        except ValueError as e:
+            # If the conversion fails, raise an exception
+            validation_failure_reason.append(str(ValueError(PHONE_ORDERS_TIME_GAP_AFTER_START_TIME +' key value should be an integer')))
+
+    if PHONE_ORDERS_TIME_GAP_BEFORE_END_TIME in restaurant_information:
+        try:
+            phone_orders_time_gap_in_minutes_before_end_time = int(restaurant_information[PHONE_ORDERS_TIME_GAP_BEFORE_END_TIME])
+            if phone_orders_time_gap_in_minutes_before_end_time < 0 or phone_orders_time_gap_in_minutes_before_end_time > 300:
+                validation_failure_reason.append(
+                    PHONE_ORDERS_TIME_GAP_BEFORE_END_TIME+ ' value should be between 0 and 300')
+        except ValueError:
+            # If the conversion fails, raise an exception
+            validation_failure_reason.append(str(ValueError(PHONE_ORDERS_TIME_GAP_BEFORE_END_TIME + ' key value should be an integer')))
+
+    if len(validation_failure_reason) > 0:
+        raise KeyError(validation_failure_reason)
+
+
 @application.route('/add_restaurant', methods=['POST'])
 def add_restaurant_database():
     data = request.json
-    restaurant_name = data['restaurant_name']
-    restaurant_number = data['restaurant_number']
-    redirecting_number = data['redirecting_number']
-    restaurant_information = data['restaurant_information']
-    pos_type = data['pos_type']
-    pos_url = data['pos_url']
-    pos_authorization_header = data['pos_authorization_header']
-    pos_tax_rate_code = data['pos_tax_rate_code']
+    restaurant_name = data[RESTAURANT_NAME_KEY]
+    restaurant_number = data[RESTAURANT_NUMBER_KEY]
+    redirecting_number = data[REDIRECTING_NUMBER_KEY]
+    restaurant_information = data[RESTAURANT_INFORMATION_KEY]
+    pos_type = data[POS_TYPE_KEY]
+    pos_url = data[POS_URL_KEY]
+    pos_authorization_header = data[POS_AUTHORIZATION_HEADER_KEY]
+    pos_tax_rate_code = data[POS_TAX_RATE_CODE_KEY]
     voice_api_type = data['voice_api_type']
     voice_api_account_sid = data['voice_api_account_sid']
     voice_api_account_auth_token = data['voice_api_account_auth_token']
     payment_api_key = data['payment_api_key']
     payment_secret = data['payment_secret']
-    print('Adding restaurant to configuration...')
+    print('In add restaurant restaurant_information=', restaurant_information)
+    try:
+        validate_restaurant_information(restaurant_information)
+        print('restaurant_information Validation passed')
+    except KeyError as key_error:
+        print('restaurant_information Validation failed', str(key_error))
+        return str(key_error), 400
 
-    persisted_restaurant_id = add_restaurant(
-        restaurant_name, restaurant_number,
-        redirecting_number, restaurant_information
-    )
+    print('Adding restaurant to configuration...')
+    persisted_restaurant_id = add_restaurant(restaurant_name, restaurant_number,redirecting_number, restaurant_information)
     add_restaurant_configuration(
         persisted_restaurant_id,
         pos_type, pos_url, pos_authorization_header, pos_tax_rate_code,
@@ -258,9 +336,6 @@ def activities(conversation_id):
     conversation_id = data['conversation']
 
     reply = ''
-    restaurant_opening_time = time(16, 00)
-    restaurant_closing_time = time(23, 30)
-    print("Restaurant timings are between ", restaurant_opening_time, restaurant_closing_time)
     if 'parameters' in data['activities'][0] and 'callee' in data['activities'][0]['parameters']:
         res = get_restaurant(data['activities'][0]['parameters']['callee'])
     else:
@@ -289,129 +364,129 @@ def activities(conversation_id):
                 add_call_log(conversation_id, res.id, CallStatus.STARTED,
                              'Call received from ' + str(calling_phone_number))
 
-                # if restaurant is open and the voice message has arrived and the order is Confirmed
-                if len(conversation_dictionary) != 0 and store.hgetall(conversation_id)['order'] == 'Confirm':
-                    print('Confirming the order from voice block for from_number, session_id',
-                          conversation_dictionary['from_number'], conversation_id)
-                    hangup_response = form_hangup_response('Order Confirmed')
-                    print('returning hangup_response from the order Confirm block ', hangup_response)
-                    return str(hangup_response)
-                # if restaurant is open is now this is the normal conversation path
-                else:
-                    conversation_dictionary = store.hgetall(conversation_id)
-                    if len(conversation_dictionary) != 0 and conversation_dictionary['first_message'] == "True" and status_code == 200:
-                        if is_restaurant_open(restaurant_opening_time, restaurant_closing_time, 'America/Denver'):
-                            # ---> First Hard code Query
-                            print('first_message is True, so flowing through first_message block')
-                            first_user_query = "Hi"
-                            # ---> Getting reply from
-                            user_query = first_user_query + ' (refer to context)'
-                            print('user_query for chat is ', user_query)
-                            print('user_query is for session_id', conversation_id)
-                            # --> Getting previous conversation
-                            history = store.lrange(conversation_id + '-user_mes', 0, -1)
-
-                            # Deserialize the messages
-                            formatted_history = []
-                            for message_str in history:
-                                message = json.loads(message_str)
-                                formatted_history.append(message)
-
-                            formatted_history.append({"role": "user", "content": user_query})
-                            store.rpush(conversation_id + '-user_mes',
-                                        json.dumps({"role": "user", "content": user_query}))
-                            reply, status_code = langchain_conversation(conversation_dictionary['to_number'],
-                                                                        conversation_id,
-                                                                        user_query,
-                                                                        formatted_history)
-
-                            print('welcome_message from chat is ', reply)
-                            print('welcome_message is for session_id', conversation_id)
-                            # --> Storing updated conversation
-
-                            history.append({"role": "assistant", "content": reply})
-                            store.rpush(conversation_id + '-user_mes',
-                                        json.dumps({"role": "assistant", "content": reply}))
-                            store.hset(conversation_id, 'first_message', "False")
-                        else:
-                            redirect_response = form_redirection_response(conversation_dictionary['redirection_number'],
-                                                                          conversation_id,
-                                                                          "Restaurant is closed or unable to help place the order during this time")
-                            print('returning redirect_response  ', redirect_response)
-                            return str(redirect_response)
-
-                    # the call flow comes here when the welcome message has been played and user is chatting now
-                    elif len(conversation_dictionary) != 0 and conversation_dictionary['first_message'] == "False":
-                        # ---> Get the speech recognition result
+            # the voice message has arrived and the order is Confirmed
+            if len(conversation_dictionary) != 0 and store.hgetall(conversation_id)['order'] == 'Confirm':
+                print('Confirming the order from voice block for from_number, session_id',
+                        conversation_dictionary['from_number'], conversation_id)
+                hangup_response = form_hangup_response('Order Confirmed')
+                print('returning hangup_response from the order Confirm block ', hangup_response)
+                return str(hangup_response)
+            # this is the normal conversation path
+            else:
+                conversation_dictionary = store.hgetall(conversation_id)
+                if (len(conversation_dictionary) != 0 and conversation_dictionary['first_message'] == "True"
+                       and status_code == 200):
+                    # check if restaurant is open and this is checked when returning the default welcome_message only
+                    if is_restaurant_open(res.id):
+                        # ---> First Hard code Query
+                        print('first_message is True, so flowing through first_message block')
+                        first_user_query = "Hi"
+                        # ---> Getting reply from
+                        user_query = first_user_query + ' (refer to context)'
+                        print('user_query for chat is ', user_query)
+                        print('user_query is for session_id', conversation_id)
+                        # --> Getting previous conversation
                         history = store.lrange(conversation_id + '-user_mes', 0, -1)
-                        print('history is ', history)
+
                         # Deserialize the messages
                         formatted_history = []
                         for message_str in history:
                             message = json.loads(message_str)
                             formatted_history.append(message)
 
-                        user_query = data['activities'][0]['text']
-                        user_query_to_lower_case = user_query.lower()
-                        # forward the call to the redirection number in case the user has mentioned any of the following words
-
                         formatted_history.append({"role": "user", "content": user_query})
-                        store.rpush(conversation_id + '-user_mes', json.dumps({"role": "user", "content": user_query}))
-
-                        call_redirection_phrase_match = ['agent', 'customer service', 'human', 'family biryani pack',
-                                                         'biryani pack', 'family',
-                                                         'representative', 'can i speak to someone',
-                                                         'can i speak to someone else', 'uber eats',
-                                                         'door dash', 'doordash', 'crab calling',
-                                                         'real person', 'can i talk to some one',
-                                                         'can i talk to someone']
-
-                        if (any(ele in user_query_to_lower_case for ele in call_redirection_phrase_match)):
-                            redirect_response = form_redirection_response(conversation_dictionary['redirection_number'],
-                                                                          conversation_id, "On User request")
-                            print('returning redirect_response  ', redirect_response)
-                            return str(redirect_response)
-
-                        print('user_query is normal conversation is ', user_query)
-
+                        store.rpush(conversation_id + '-user_mes',
+                                    json.dumps({"role": "user", "content": user_query}))
                         reply, status_code = langchain_conversation(conversation_dictionary['to_number'],
                                                                     conversation_id,
                                                                     user_query,
                                                                     formatted_history)
-
-                        print('response in first_message False from chat is ', conversation_id, reply)
+                        print('welcome_message from chat is ', reply)
+                        print('welcome_message is for session_id', conversation_id)
                         # --> Storing updated conversation
-
                         history.append({"role": "assistant", "content": reply})
-                        store.rpush(conversation_id + '-user_mes', json.dumps({"role": "assistant", "content": reply}))
-
-                        # If <PLACE_ORDER_AND_END_CALL> is set then, it means the order is to be placed and conversation has to be ended.
-                        if '<PLACE_ORDER_AND_END_CALL>' in reply:
-                            reply = reply.replace('<PLACE_ORDER_AND_END_CALL>', '')
-                            store.hset(conversation_id, 'order', 'Confirm')
-                            print('Confirming the order from <PLACE_ORDER_AND_END_CALL> in the response for',
-                                  conversation_id)
-                            status_code = place_order(conversation_id)
-                            print('From <PLACE_ORDER_AND_END_CALL> block for conversation_id response is',
-                                  conversation_id,
-                                  status_code, reply)
-                    if status_code != 200:
+                        store.rpush(conversation_id + '-user_mes',
+                                    json.dumps({"role": "assistant", "content": reply}))
+                        store.hset(conversation_id, 'first_message', "False")
+                    else:
                         redirect_response = form_redirection_response(conversation_dictionary['redirection_number'],
-                                                                      conversation_id, "Error In Chat GPT Service")
+                                                                      conversation_id,
+                                                                      "Restaurant is closed or unable to help place the order during this time")
                         print('returning redirect_response  ', redirect_response)
                         return str(redirect_response)
-                    else:
-                        # ---> Normal conversation reply
-                        print('cache [order] value is ', store.hgetall(conversation_id)['order'])
-                        normal_response = form_response(reply)
-                        print('returning normal_response from the respective block ', normal_response)
-                        return str(normal_response)
 
+                # the call flow comes here when the welcome message has been played and user is chatting now
+                elif len(conversation_dictionary) != 0 and conversation_dictionary['first_message'] == "False":
+                    # ---> Get the speech recognition result
+                    history = store.lrange(conversation_id + '-user_mes', 0, -1)
+                    print('history is ', history)
+                    # Deserialize the messages
+                    formatted_history = []
+                    for message_str in history:
+                        message = json.loads(message_str)
+                        formatted_history.append(message)
 
+                    user_query = data['activities'][0]['text']
+                    user_query_to_lower_case = user_query.lower()
+                    # forward the call to the redirection number in case the user has mentioned any of the following words
+
+                    formatted_history.append({"role": "user", "content": user_query})
+                    store.rpush(conversation_id + '-user_mes', json.dumps({"role": "user", "content": user_query}))
+
+                    call_redirection_phrase_match = ['agent', 'customer service', 'human', 'family biryani pack',
+                                                     'biryani pack', 'family',
+                                                     'representative', 'can i speak to someone',
+                                                     'can i speak to someone else', 'uber eats',
+                                                     'door dash', 'doordash', 'crab calling',
+                                                     'real person', 'can i talk to some one',
+                                                     'can i talk to someone']
+
+                    if (any(ele in user_query_to_lower_case for ele in call_redirection_phrase_match)):
+                        redirect_response = form_redirection_response(conversation_dictionary['redirection_number'],
+                                                                      conversation_id, "On User request")
+                        print('returning redirect_response  ', redirect_response)
+                        return str(redirect_response)
+
+                    print('user_query is normal conversation is ', user_query)
+
+                    #normal conversation path
+                    reply, status_code = langchain_conversation(conversation_dictionary['to_number'],
+                                                                conversation_id,
+                                                                user_query,
+                                                                formatted_history)
+
+                    print('response in first_message False from chat is ', conversation_id, reply)
+                    # --> Storing updated conversation
+
+                    history.append({"role": "assistant", "content": reply})
+                    store.rpush(conversation_id + '-user_mes', json.dumps({"role": "assistant", "content": reply}))
+
+                    # If <PLACE_ORDER_AND_END_CALL> is set then, it means the order is to be placed and conversation has to be ended.
+                    if '<PLACE_ORDER_AND_END_CALL>' in reply:
+                        reply = reply.replace('<PLACE_ORDER_AND_END_CALL>', '')
+                        store.hset(conversation_id, 'order', 'Confirm')
+                        print('Confirming the order from <PLACE_ORDER_AND_END_CALL> in the response for',
+                              conversation_id)
+                        status_code = place_order(conversation_id)
+                        print('From <PLACE_ORDER_AND_END_CALL> block for conversation_id response is',
+                              conversation_id,
+                              status_code, reply)
+                if status_code != 200:
+                    redirect_response = form_redirection_response(conversation_dictionary['redirection_number'],
+                                                                  conversation_id, "Error In Chat GPT Service")
+                    print('returning redirect_response  ', redirect_response)
+                    return str(redirect_response)
+                else:
+                    # ---> Normal conversation reply
+                    print('cache [order] value is ', store.hgetall(conversation_id)['order'])
+                    normal_response = form_response(reply)
+                    print('returning normal_response from the respective block ', normal_response)
+                    return str(normal_response)
+
+        # As per the current implementation the flow should only come here in case of transferStatus event
         else:
             if data['activities'][0]['type'] == 'event' and data['activities'][0]['name'] == 'transferStatus':
-                print(
-                    'As per the current implementation the flow should only come here in case of transferStatus event')
+                print('As per the current implementation the flow should only come here in case of transferStatus event')
                 transfer_status_value = data['activities'][0]['value']
                 if transfer_status_value['status'] == 'answered':
                     reason = transfer_status_value['status']
@@ -581,24 +656,6 @@ def download_logs():
     except Exception as e:
         traceback.print_exc()
         return str(e)
-
-
-def is_restaurant_open(restaurant_opening_time, restaurant_closing_time, timezone_str):
-    # Define the timezone
-    timezone = pytz.timezone(timezone_str)
-
-    # Get current time in the specified timezone
-    current_time = datetime.now(timezone).time()
-
-    # Check if current time is within the range
-    if restaurant_opening_time <= current_time <= restaurant_closing_time:
-        return True
-    else:
-        return False
-
-
-def is_restaurant_open_temp(restaurant_opening_time, restaurant_closing_time, timezone_str):
-    return True
 
 
 if __name__ == '__main__':

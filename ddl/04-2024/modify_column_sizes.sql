@@ -1,11 +1,11 @@
 ALTER TABLE `restaurant` CHANGE `name` `name` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
 ALTER TABLE `restaurant` CHANGE `phone_number` `phone_number` VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
 ALTER TABLE `restaurant` CHANGE `redirection_phone_number` `redirection_phone_number` VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
-ALTER TABLE `restaurant` CHANGE `information_json` `information_json` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
+ALTER TABLE `restaurant` CHANGE `information_json` `information_json` VARCHAR(4096) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
 ALTER TABLE `restaurant_audit_trail` CHANGE `name` `name` VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
 ALTER TABLE `restaurant_audit_trail` CHANGE `phone_number` `phone_number` VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
 ALTER TABLE `restaurant_audit_trail` CHANGE `redirection_phone_number` `redirection_phone_number` VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
-ALTER TABLE `restaurant_audit_trail` CHANGE `information_json` `information_json` VARCHAR(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
+ALTER TABLE `restaurant_audit_trail` CHANGE `information_json` `information_json` VARCHAR(4096) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
 ALTER TABLE `restaurant_system_configuration` CHANGE `pos_type` `pos_type` VARCHAR(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
 ALTER TABLE `restaurant_system_configuration` CHANGE `pos_url` `pos_url` VARCHAR(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
 ALTER TABLE `restaurant_system_configuration` CHANGE `pos_authorization_header` `pos_authorization_header` VARCHAR(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;

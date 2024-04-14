@@ -26,7 +26,7 @@ class restaurant(db.Model):
     # --> Stores the redirecting phone number
     redirection_phone_number = db.Column(db.String(16), nullable=False)
     # --> Stores the restaurant information
-    information_json = db.Column(db.String(1024), nullable=False)
+    information_json = db.Column(db.String(4096), nullable=False)
     # --> Stores the creation date
     created_date = db.Column(
         db.DateTime, nullable=False
@@ -85,7 +85,7 @@ class restaurant_audit_trail(db.Model):
     # --> Stores the redirecting phone number
     redirection_phone_number = db.Column(db.String(16), nullable=False)
     # --> Stores the restaurant information
-    information_json = db.Column(db.String(1024), nullable=False)
+    information_json = db.Column(db.String(4096), nullable=False)
     # --> Stores the creation date
     created_date = db.Column(
         db.DateTime, nullable=False
