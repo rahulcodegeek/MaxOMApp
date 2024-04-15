@@ -310,6 +310,8 @@ class order_info(db.Model):
         db.Integer, db.ForeignKey('customer.id'),
         nullable=False
     )
+    # --> Stores the conversation id associate with conversation
+    conversation_id = db.Column(db.String(64), nullable=False)
     # --> Stores the complete order_info
     order_details = db.Column(db.String(5000), nullable=False)
     # --> Stores the total price of order
@@ -328,10 +330,12 @@ class order_info(db.Model):
     )
 
     # ---> Function to initialize an order_info
-    def __init__(self, restaurant_id, customer_id, order_details,
+    def __init__(self, restaurant_id, customer_id, conversation_id,
+                 order_details,
                  order_price, order_tax, total_price):
         self.restaurant_id = restaurant_id
         self.customer_id = customer_id
+        self.conversation_id = conversation_id
         self.order_details = order_details
         self.order_price = order_price
         self.order_tax = order_tax
@@ -343,15 +347,17 @@ class order_info(db.Model):
 class conversation(db.Model):
     # --> Stores the id of conversation
     id = db.Column(db.Integer, primary_key=True)
-    # --> Stores the restaurant id associate with customer
+    # --> Stores the restaurant id associate with conversation
     restaurant_id = db.Column(
         db.Integer, db.ForeignKey('restaurant.id'), nullable=False
     )
-    # --> Stores the customer id associate with order_info
+    # --> Stores the customer id associate with conversation
     customer_id = db.Column(
         db.Integer, db.ForeignKey('customer.id'),
         nullable=False
     )
+    # --> Stores the conversation id associate with conversation
+    conversation_id = db.Column(db.String(64), nullable=False)
     # --> Stores the conversation
     conversation = db.Column(db.String(10000), nullable=False)
     # --> Stores the creation date
@@ -359,10 +365,11 @@ class conversation(db.Model):
         db.DateTime, nullable=False
     )
 
-    def __init__(self, restaurant_id, customer_id,
+    def __init__(self, restaurant_id, customer_id, conversation_id,
                  conversation):
         self.restaurant_id = restaurant_id
         self.customer_id = customer_id
+        self.conversation_id = conversation_id
         self.conversation = conversation
         self.created_date = datetime.now(timezone.utc)
 

@@ -17,16 +17,29 @@ def get_conversation_by_customer_id(customer_id):
     return conversation_obj
 
 
+# --- Function to get a conversation by conversation_id
+def get_conversation_by_conversation_id(conversation_id):
+    conversation_obj = conversation.query.filter_by(
+        conversation_id=conversation_id
+    ).first()
+    return conversation_obj
+
+
 # --- Function to add conversation to the database
-def add_conversation(restaurant_id, customer_id, conversation_text):
-    new_conversation = conversation(
-        restaurant_id=restaurant_id,
-        customer_id=customer_id,
-        conversation=conversation_text
-    )
-    db.session.add(new_conversation)
-    db.session.commit()
-    return new_conversation.id
+def add_conversation(restaurant_id, customer_id, conversation_id,
+                     conversation_text):
+    existing_con = get_conversation_by_conversation_id(conversation_id)
+    if not existing_con:
+        new_conversation = conversation(
+            restaurant_id=restaurant_id,
+            customer_id=customer_id,
+            conversation_id=conversation_id,
+            conversation=conversation_text
+        )
+        db.session.add(new_conversation)
+        db.session.commit()
+        return new_conversation.id
+    return existing_con.id
 
 
 # --- Function to get the conversation in proper format

@@ -322,7 +322,7 @@ def disconnect(conversation_id):
         formatted_history.append(message)
     conversation_text = make_conversation_template(formatted_history)
     customer_id = add_customer(res.id, "Guest", conversation_dictionary['from_number'])
-    conversation_id = add_conversation(res.id, customer_id, conversation_text)
+    conversation_id = add_conversation(res.id, customer_id, conversation_id, conversation_text)
     return str(disconnect_response)
 
 
@@ -574,7 +574,7 @@ def form_redirection_response(redirection_number, conversation_id, reason):
         formatted_history.append(message)
     convertion_text = make_conversation_template(formatted_history)
     customer_id = add_customer(res.id, "Guest", conversation_dictionary['from_number'])
-    conversation_id = add_conversation(res.id, customer_id, convertion_text)
+    conversation_id = add_conversation(res.id, customer_id, conversation_id, convertion_text)
 
     redirect_response = {
         'activities': [

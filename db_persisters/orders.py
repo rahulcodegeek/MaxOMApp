@@ -27,12 +27,14 @@ def get_order_by_order_id(order_id):
 
 
 # --- Function to add an order to the database
-def add_order(restaurant_id, customer_id, order_details, order_price,
+def add_order(restaurant_id, customer_id, conversation_id,
+              order_details, order_price,
               order_tax, total_price):
     order_details_ = json.dumps(order_details)
     new_order_info = order_info(
         restaurant_id=restaurant_id,
         customer_id=customer_id,
+        conversation_id=conversation_id,
         order_details=order_details_,
         order_price=order_price,
         order_tax=order_tax,

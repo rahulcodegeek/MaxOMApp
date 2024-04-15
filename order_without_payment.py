@@ -300,7 +300,7 @@ def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode,
         print('added the order ', order_id)
 
         # ---> Adding the conversation in the database
-        persisted_conversation_id = add_conversation(res.id, customer_id, conversation_template)
+        persisted_conversation_id = add_conversation(res.id, customer_id, conversation_id, conversation_template)
         print('added the conversation_ ', persisted_conversation_id)
 
         send_order_to_pos(order_id, res.id, is_test_mode, conversation_id)
