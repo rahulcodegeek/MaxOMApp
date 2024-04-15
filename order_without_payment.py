@@ -24,7 +24,7 @@ import os
 open_ai_api_key = os.environ.get('OPEN_AI_API_KEY')
 # --- A function that converts the current order into the json format using ChatGpt
 def order_query(history):
-    # ---> Prompt for the ChatGpt to return the current order in json format given below in the prompt  
+    # ---> Prompt for the ChatGpt to return the current order in json format given below in the prompt
     Order_Query = """"Return the current order in the below format and don't add anything else other than the given format
     <JSON OBJECT>
     {
@@ -34,14 +34,14 @@ def order_query(history):
                         "item_price" : 'price (price of the item from the provided menu)',
                         "item_id" : 'id (id of the specific item from the context)',
                         "item_quantity" : 'quantity',
-                        "additional_modifier_name": "additional modifier name (name of the specific additional modifier if selected item have from the context)"
-                        "additional_modifier_id": "additional modifier id (id of the specific additional modifier if selected item have from the context)"
-                        "modifier_type_name": "modifier type name (name of the specific modifier type user selected if selected item have modifier from the context)"
-                        "modifier_type_id": "modifier type id (id of the specific modifier type user selected if selected item have modifier from the context)"
+                        "additional_modifier_name": "additional modifier name (name of the specific additional modifier if selected has additional modifier from the context)"
+                        "additional_modifier_id": "additional modifier id (id of the specific additional modifier if selected item has additional modifier from the context)"
+                        "modifier_type_name": "modifier type name (name of the specific modifier type user selected if selected item has additional modifier from the context)"
+                        "modifier_type_id": "modifier type id (id of the specific modifier type user selected if selected item has additional modifier from the context)"
                         }
                     ],
             "customer_name": "customer name",
-            
+
             "total_price" : "total price of order"
     }
     </JSON OBJECT>
@@ -66,12 +66,12 @@ def order_query(history):
         print(e)
         reply = "Sorry for inconvenience eight. I am connecting you to the actual agent wait for some moments."
         status = 502
-    # ---> Extracting the order in json type 
+    # ---> Extracting the order in json type
     order = extract_order_json(reply)
     return order, status
 
 
-# --- A function that extract the order json object from the string 
+# --- A function that extract the order json object from the string
 def extract_order_json(input_string):
     # ---> Extracting the Json from our order repeat string
     order_string = input_string
@@ -126,18 +126,18 @@ def create_order(baseURL, headers, customer_name, customer_entry, is_test_mode):
 
     is_test_mode_to_lower_case = is_test_mode.lower()
 
-    if("true" in is_test_mode_to_lower_case):
+    if ("true" in is_test_mode_to_lower_case):
         note = 'A Test Order'
         testMode = 'true'
     else:
         note = 'MaxOM Order'
         testMode = 'false'
 
-    #TODO - Change this when deploying, enhancement to do these configurations at one place
+    # TODO - Change this when deploying, enhancement to do these configurations at one place
     payload = {
         "paymentState": "OPEN",
-        "note": note+"\nCustomer Name: "+customer_name+"\nCustomer Phone: "+customer_entry.customer_phone_number
-        #,testMode
+        "note": note + "\nCustomer Name: " + customer_name + "\nCustomer Phone: " + customer_entry.customer_phone_number
+        # ,testMode
     }
     r = requests.post(url, json=payload, headers=headers)
     if r.status_code == 200:
@@ -149,9 +149,9 @@ def create_order(baseURL, headers, customer_name, customer_entry, is_test_mode):
 
 # --- A function to an item in the order that is already created
 def add_line_item(order, item, myitem, baseURL, headers):
-    url = baseURL+'orders/'+order['id']+'/line_items'
+    url = baseURL + 'orders/' + order['id'] + '/line_items'
     data = {
-            'item': {'id': myitem['id']}
+        'item': {'id': myitem['id']}
     }
     r = requests.post(url, data=json.dumps(data), headers=headers)
     if r.status_code == 200:
@@ -163,24 +163,26 @@ def add_line_item(order, item, myitem, baseURL, headers):
 
 # --- A function to an item in the order that is already created
 def add_modifier_in_line_item(order, item, inlineId, baseURL, headers):
-    url = baseURL+'orders/'+order['id']+'/line_items/'+ inlineId + "/modifications"
+    url = baseURL + 'orders/' + order['id'] + '/line_items/' + inlineId + "/modifications"
     data = {
-            "modifier": {
-                "id": item['modifier_type_id']
-            }
+        "modifier": {
+            "id": item['modifier_type_id']
+        }
     }
+    print("**Adding modifier", item['modifier_type_id'], ' to lineId', inlineId, ' of the order ',  order['id'])
     r = requests.post(url, data=json.dumps(data), headers=headers)
     if r.status_code == 200:
+        print("**Added modifier", item['modifier_type_id'], ' to lineId', inlineId, ' of the order ', order['id'])
         return r.json()
     else:
-        print("Add modifier Error")
+        print("**Error in adding modifier", item['modifier_type_id'], ' to lineId', inlineId, ' of the order ', order['id'])
         print(r.json())
 
 
 # --- A function to print event
 def print_event(clover_order_id, baseURL, headers):
     url = baseURL + 'print_event'
-    payload = { 
+    payload = {
         "orderRef": {
             "id": clover_order_id
         }
@@ -194,7 +196,7 @@ def print_event(clover_order_id, baseURL, headers):
 
 # --- A function to add discount
 def add_discount(clover_order_id, baseURL, headers):
-    url = baseURL+'orders/'+clover_order_id+"/discounts"
+    url = baseURL + 'orders/' + clover_order_id + "/discounts"
     payload = {
         "name": "Order placed through AI bot.",
         "percentage": 10
@@ -266,7 +268,7 @@ def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode,
         print('order ', order)
         tax_rate = get_tax_rate(to_number)
         print('tax_rate ', tax_rate)
-        tax_rate_percentage = tax_rate/100000
+        tax_rate_percentage = tax_rate / 100000
         # ---> Calculating tax on order
         price = order['total_price']
         print('price of the order ', price)
@@ -337,8 +339,8 @@ def send_order_to_pos(order_id, res_id, is_test_mode, conversation_id):
         print('json order is ', json_order)
 
         # ---> Create order and grab order ID
-        customer_name = json_order['customer_name'] # This customer name could be sometimes different from the one stored in the customer table
-        #Example if same phone numer is being used by husband and wife to place the order..
+        customer_name = json_order['customer_name']  # This customer name could be sometimes different from the one stored in the customer table
+        # Example if same phone numer is being used by husband and wife to place the order..
         order = create_order(baseURL, headers, customer_name, customer_entry, is_test_mode)
         print('base order created in clover ', order)
         data_items = json_order['order']
@@ -359,11 +361,11 @@ def send_order_to_pos(order_id, res_id, is_test_mode, conversation_id):
         # ---> Open the order so its visible on other devices
         open_order(order, baseURL, headers)
         print('order opened in clover ', order)
-        #add_discount(order['id'], baseURL, headers)
+        # add_discount(order['id'], baseURL, headers)
 
         # ---> Getting Order
         clover_order = get_order(order, baseURL, headers)
-        print('clover_order fetched ' , clover_order)
+        print('clover_order fetched ', clover_order)
         clover_order_id = clover_order['id']
         print("Clover Order ID is ", clover_order_id)
         print_status = print_event(clover_order_id, baseURL, headers)
