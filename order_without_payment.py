@@ -293,6 +293,7 @@ def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode,
         order['total_price_with_tax'] = total_price_with_tax
         order_id = add_order(
             res.id, customer_id,
+            conversation_id,
             order, order['total_price'],
             sales_tax,
             total_price_with_tax
