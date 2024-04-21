@@ -320,9 +320,14 @@ def disconnect(conversation_id):
     for message_str in history:
         message = json.loads(message_str)
         formatted_history.append(message)
-    conversation_text = make_conversation_template(formatted_history)
-    customer_id = add_customer(res.id, "Guest", conversation_dictionary['from_number'])
-    conversation_id = add_conversation(res.id, customer_id, conversation_id, conversation_text)
+    # the following condition is a quickfix to prevent the race condition in the async operation to place the order that
+    # happens after the disconnect. This is because same operations below are also done during placing the order
+    # (in case the order is Confirmed). If the order is not confirmed then only we create the customer and log the
+    # conversation from te below block of the code.
+    if conversation_dictionary['order'] == 'Not-Confirm':
+        conversation_text = make_conversation_template(formatted_history)
+        customer_id = add_customer(res.id, "Guest", conversation_dictionary['from_number'])
+        add_conversation(res.id, customer_id, conversation_id, conversation_text)
     return str(disconnect_response)
 
 
