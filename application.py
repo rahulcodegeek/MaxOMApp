@@ -1,6 +1,7 @@
 from datetime import datetime, time
 import pytz
 
+from fillers_information import get_randomly_filler_sentence, get_randomly_question_filler_sentence
 from call_status import CallStatus
 from database import db
 
@@ -484,7 +485,7 @@ def activities(conversation_id):
                 else:
                     # ---> Normal conversation reply
                     print('cache [order] value is ', store.hgetall(conversation_id)['order'])
-                    normal_response = form_response(reply)
+                    normal_response = form_response(reply, user_query)
                     print('returning normal_response from the respective block ', normal_response)
                     return str(normal_response)
 
@@ -501,7 +502,7 @@ def activities(conversation_id):
                               + ', reasonCode -', transfer_status_value['reasonCode']
                               + ', reason -', transfer_status_value['reason'])
                     add_call_log(conversation_id, res.id, CallStatus.TRANSFER_FAILED, reason)
-            normal_response = form_response("{}")
+            normal_response = form_response("{}", '')
             return str(normal_response)
 
 
@@ -529,7 +530,12 @@ def form_hangup_response(reason):
     return json.dumps(hangup_response)
 
 
-def form_response(reply):
+def form_response(reply, user_query):
+    filler = ''
+    if '?' in user_query:
+        filler = get_randomly_question_filler_sentence()
+    else:
+        filler = get_randomly_filler_sentence()
     normal_response = {
         'activities': [
             {
@@ -537,7 +543,10 @@ def form_response(reply):
                 'timestamp': datetime.utcnow().isoformat(),
                 'language': 'en-US',
                 'type': 'message',
-                'text': reply
+                'text': reply,
+                'sessionParams': {
+                    'botNoInputSpeech': filler
+                }
             }
         ]
     }

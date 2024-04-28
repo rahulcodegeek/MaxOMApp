@@ -2,20 +2,20 @@ import random
 
 # List of filler sentences
 filler_sentences = [
-    "Certainly, just a moment while I gather the necessary details for you.",
-    "Certainly, let me quickly retrieve the details for you.",
-    "One moment, verifying information to assist you better.",
-    "I'm verifying the information to assist you; just a moment.",
-    "Please hold, I'm checking that for you.",
-    "Hmm...Let me review this briefly for you.",
-    "Please wait while I review this for you."
+    "Gathering details, one moment.",
+    "Retrieving details momentarily, standby.",
+    "Verifying, one moment please.",
+    "Verifying information, please wait for a moment.",
+    "Checking, please hold for updates.",
+    "Hmm...Reviewing briefly, just a moment.",
+    "Reviewing, please wait briefly."
 ]
 
 Question_filler_sentences = [
-    "Please wait a moment as I process this information for you.",
-    "Please wait as I process this information.",
-    "Bear with me a moment as I gather information for you.",
-    "Bear with me as I gather information for your query."
+    "Processing, please wait just a moment.",
+    "Processing, please wait a moment.",
+    "Gathering information, please bear with me.",
+    "Bear with me as I gather information for you."
 ]
 
 # List to keep track of selected sentences
