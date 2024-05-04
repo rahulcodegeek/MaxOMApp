@@ -543,9 +543,9 @@ def form_response(reply, user_query):
                 'timestamp': datetime.utcnow().isoformat(),
                 'language': 'en-US',
                 'type': 'message',
-                'text': reply,
+                'text': '<prosody rate="120%">' + reply + '</prosody>',
                 'sessionParams': {
-                    'botNoInputSpeech': filler
+                    'botNoInputSpeech': '<prosody rate="120%">' + filler + '</prosody>'
                 }
             }
         ]
@@ -597,7 +597,7 @@ def form_redirection_response(redirection_number, conversation_id, reason):
                 'timestamp': datetime.utcnow().isoformat(),
                 'language': 'en-US',
                 'type': 'message',
-                'text': 'Transferring your call'
+                'text': 'Transferring your call to the restaurant'
             },
             {
                 'id': str(uuid.uuid4()),
