@@ -439,15 +439,30 @@ def activities(conversation_id):
                     formatted_history.append({"role": "user", "content": user_query})
                     store.rpush(conversation_id + '-user_mes', json.dumps({"role": "user", "content": user_query}))
 
-                    call_redirection_phrase_match = ['agent', 'customer service', 'human', 'family biryani pack',
-                                                     'biryani pack', 'family',
-                                                     'representative', 'can i speak to someone',
-                                                     'can i speak to someone else', 'uber eats',
-                                                     'door dash', 'doordash', 'crab calling',
-                                                     'real person', 'can i talk to some one',
-                                                     'can i talk to someone']
+                    call_redirection_phrase_match = ['agent',
+                                                     'customer service',
+                                                     'human',
+                                                     'family biryani pack',
+                                                     'biryani pack',
+                                                     'family',
+                                                     'representative',
+                                                     'can i speak to someone',
+                                                     'can i speak to someone else',
+                                                     'uber eats',
+                                                     'door dash',
+                                                     'doordash',
+                                                     'crab calling',
+                                                     'real person',
+                                                     'can i talk to some one',
+                                                     'can i talk to someone',
+                                                     'Connect me to the team member',
+                                                     'talk to a person',
+                                                     'talk to someone',
+                                                     'somebody',
+                                                     'catering']
 
-                    if (any(ele in user_query_to_lower_case for ele in call_redirection_phrase_match)):
+                    if (any(ele in user_query_to_lower_case for ele in call_redirection_phrase_match) and
+                            store.hgetall(conversation_id)['order'] != 'Confirm'):
                         redirect_response = form_redirection_response(conversation_dictionary['redirection_number'],
                                                                       conversation_id, "On User request")
                         print('returning redirect_response  ', redirect_response)
