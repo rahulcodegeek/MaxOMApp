@@ -24,6 +24,7 @@ import os
 open_ai_api_key = os.environ.get('OPEN_AI_API_KEY')
 # --- A function that converts the current order into the json format using ChatGpt
 def order_query(history):
+    current_history = history
     # ---> Prompt for the ChatGpt to return the current order in json format given below in the prompt
     Order_Query = """"Return the current order in the below format and don't add anything else other than the given format
     <JSON OBJECT>
@@ -34,15 +35,36 @@ def order_query(history):
                         "item_price" : 'price (price of the item from the provided menu)',
                         "item_id" : 'id (id of the specific item from the context)',
                         "item_quantity" : 'quantity',
-                        "additional_modifier_name": "additional modifier name (name of the specific additional modifier if selected has additional modifier from the context)"
-                        "additional_modifier_id": "additional modifier id (id of the specific additional modifier if selected item has additional modifier from the context)"
-                        "modifier_type_name": "modifier type name (name of the specific modifier type user selected if selected item has additional modifier from the context)"
-                        "modifier_type_id": "modifier type id (id of the specific modifier type user selected if selected item has additional modifier from the context)"
-                        }
+                        "modifications:":[
+                                            {
+                                                "modifier_type_name": "Name of the modifier type from the Modifiers Information heading in context given not from Menu",
+                                                "modifier_type_id": "Id of the modifier type from the Modifiers Information heading in context given not from Menu",
+                                                "modifier_option_name": "Name of the modifier option from the modifier type under the Modifiers Information heading in context given not from Menu (name of the specific modifier option selected by the user)",
+                                                "modifier_option_id": "Id of the modifier option from the Modifiers Information heading in context given not from Menu (id of the specific modifier option selected by the user)",
+                                                "modifier_option_price": "selected modifier option price under the Modifiers Information heading in context given not from Menu (price of the specific modifier option selected by the user)"
+                                            },
+                                            {
+                                                "modifier_type_name": "Name of the modifier type from the Modifiers Information heading in context given not from Menu",
+                                                "modifier_type_id": "Id of the modifier type from the Modifiers Information heading in context given not from Menu",
+                                                "modifier_option_name": "Name of the modifier option from the modifier type under the Modifiers Information heading in context given not from Menu (name of the specific modifier option selected by the user)",
+                                                "modifier_option_id": "Id of the modifier option from the Modifiers Information heading in context given not from Menu (id of the specific modifier option selected by the user)",
+                                                "modifier_option_price": "selected modifier option price under the Modifiers Information heading in context given not from Menu (price of the specific modifier option selected by the user)"
+                                            },
+                                            .
+                                            .
+                                            .
+                                            .
+                                            .
+                                            "list will be empty in no modifier selected"
+                                        ],
+                        "price_with_modifier": 'total price of item by adding item price and price of all modifications'
+                        },
+                        .
+                        .
+                        .
                     ],
             "customer_name": "customer name",
-
-            "total_price" : "total price of order"
+            "total_price" : "total price of order with modifiers price"
     }
     </JSON OBJECT>
     Don't skip this format and any of the tags provide along with the brackets. You have to strictly follow the format. Use the current order information to return the order.
@@ -67,12 +89,12 @@ def order_query(history):
         reply = "Sorry for inconvenience eight. I am connecting you to the actual agent wait for some moments."
         status = 502
     # ---> Extracting the order in json type
-    order = extract_order_json(reply)
+    order = extract_order_json(reply, current_history)
     return order, status
 
 
 # --- A function that extract the order json object from the string
-def extract_order_json(input_string):
+def extract_order_json(input_string, current_history):
     # ---> Extracting the Json from our order repeat string
     order_string = input_string
     # ---> Find the start and end indices of the JSON object within the string
@@ -87,7 +109,7 @@ def extract_order_json(input_string):
             break
         except:
             # ---> If any error occurs get the order again from the ChatGpt
-            order_string = order_query()
+            order_string = order_query(current_history)
     return order_json_1
 
 
@@ -162,21 +184,22 @@ def add_line_item(order, item, myitem, baseURL, headers):
 
 
 # --- A function to an item in the order that is already created
-def add_modifier_in_line_item(order, item, inlineId, baseURL, headers):
+def add_modifier_in_line_item(order, modifer_id, inlineId, baseURL, headers):
     url = baseURL + 'orders/' + order['id'] + '/line_items/' + inlineId + "/modifications"
     data = {
         "modifier": {
-            "id": item['modifier_type_id']
+            "id": modifer_id
         }
     }
-    print("**Adding modifier", item['modifier_type_id'], ' to lineId', inlineId, ' of the order ',  order['id'])
+    print("**Adding modifier", modifer_id, ' to lineId', inlineId, ' of the order ',  order['id'])
     r = requests.post(url, data=json.dumps(data), headers=headers)
     if r.status_code == 200:
-        print("**Added modifier", item['modifier_type_id'], ' to lineId', inlineId, ' of the order ', order['id'])
+        print("**Added modifier", modifer_id, ' to lineId', inlineId, ' of the order ', order['id'])
         return r.json()
     else:
-        print("**Error in adding modifier", item['modifier_type_id'], ' to lineId', inlineId, ' of the order ', order['id'])
+        print("**Error in adding modifier", modifer_id, ' to lineId', inlineId, ' of the order ', order['id'])
         print(r.json())
+
 
 
 # --- A function to print event
@@ -254,11 +277,22 @@ def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode,
 
         in_context_menu_items = store.lrange(conversation_id + '-in-context-menu-items', 0, -1)
         print('Pulling items from cache ', conversation_id + '-in-context-menu-items ', in_context_menu_items)
+        file_path = "./resources/"+str(res.id)+"_modifier.json"
 
-        in_context_menu_items_str = '\n'.join([item for item in in_context_menu_items])
-        print('Replacing {context} in prompt with ', in_context_menu_items_str)
+        # Read JSON data from file
+        with open(file_path, 'r') as file:
+            modifier_data = json.load(file)
+        menu = '\n'.join([item for item in in_context_menu_items])
+        modifier = ""
+        for category, values in modifier_data.items():
+            if len(values['modifiers']) > 0:
+                in_context_modifier_items = store.lrange(conversation_id + f'-in-{category}-modifier', 0, -1)
+                modifier_data_string = '\n'.join([item for item in in_context_modifier_items])
+                modifier += modifier_data_string + "\n\n\n"
+        menu_detail = f'Menu Information:\n{menu}\n\n\n{modifier}'
+        print('Replacing {menu} in prompt with ', menu_detail)
 
-        data = data.replace("{context}", in_context_menu_items_str)
+        data = data.replace("{menu}", menu_detail)
         history.insert(0, {"role": "assistant", "content": data})
 
         print('persist_and_send_order_to_pos.....')
@@ -357,8 +391,10 @@ def send_order_to_pos(order_id, res_id, is_test_mode, conversation_id):
                 print()
                 # ---> Then Add it in the order which is just created
                 inlineItem = add_line_item(order, item, myItem, baseURL, headers)
-                if item['modifier_type_id'] != '':
-                    add_modifier_in_line_item(order, item, inlineItem['id'], baseURL, headers)
+                if len(item['modifications']) != 0:
+                    for modifier in item['modifications']:
+                        if modifier['modifier_option_id'] != "":
+                            add_modifier_in_line_item(order, modifier['modifier_option_id'], inlineItem['id'], baseURL, headers)
         # ---> Open the order so its visible on other devices
         open_order(order, baseURL, headers)
         print('order opened in clover ', order)

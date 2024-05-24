@@ -14,7 +14,14 @@ open_ai_api_key = os.environ.get('OPEN_AI_API_KEY')
 
 def create_embeddings(restaurant_phone_number):
     res = get_restaurant(restaurant_phone_number)
-    pickle_path = "./resources/Retrievers/" + str(res.id) + "_Retriever" + ".pkl"
+    # Specify the path of the folder you want to create
+    folder_path = "./resources/Retrievers/" + str(res.id)
+
+    # Check if the folder already exists
+    if not os.path.exists(folder_path):
+        # If it doesn't exist, create the folder
+        os.makedirs(folder_path)
+    pickle_path = folder_path + "/Retriever" + ".pkl"
     menu_file = "./resources/"+str(res.id)+"_menu.txt"
     embeddings = []  # List to store embeddings
     lines = []  # List to store the lines corresponding to the embeddings
@@ -67,12 +74,64 @@ def find_similar_texts(query_text, lines, embeddings, similarity_threshold=0.4, 
 
     return top_similar_texts
 
+
+def get_modifiers_information(query, restaurant_phone_number, conversation_id, menu_str):
+    res = get_restaurant(restaurant_phone_number)
+    # Path to your JSON file
+    file_path = "./resources/"+str(res.id)+"_modifier.json" 
+    
+    modifier_menu_detail_return = ''
+    # Read JSON data from file
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+    # Loop through each category and its modifiers
+    if 'family biryani pack' in query.lower() or 'biryani pack' in query.lower() or 'family' in query.lower():
+        for category, values in data.items():
+            modifier_menu_detial = ''
+            if len(values['modifiers']) > 0:
+                in_context_modifier_items = store.lrange(conversation_id + f'-in-{category}-modifier', 0, -1)
+                in_context_modifier_items_str = '\n'.join([item for item in in_context_modifier_items])
+                modifier_item__ = f'Modifer Group - {category} Modifiers: (ID: {values["modifier_type_id"]}):\n'
+                if modifier_item__ not in in_context_modifier_items_str:
+                    modifier_menu_detail_return += modifier_item__
+                    modifier_menu_detial += modifier_item__
+                    for modifier in values['modifiers']:
+                        modi_data = f"{modifier['name']}: ID: {modifier['id']}: Price: ${modifier['price']}\n"
+                        modifier_menu_detail_return += str(modi_data)
+                        modifier_menu_detial += str(modi_data)
+                    modifier_menu_detail_return += "\n\n\n"
+                    store.lpush(conversation_id + f'-in-{category}-modifier', modifier_menu_detial)
+                else:
+                    modifier_menu_detail_return += in_context_modifier_items_str
+
+    else:
+        for category, values in data.items():
+            modifier_menu_detial = ''
+            if 'spice level' in menu_str.lower() and category.lower() == 'spice level':
+                in_context_modifier_items = store.lrange(conversation_id + f'-in-{category}-modifier', 0, -1)
+                in_context_modifier_items_str = '\n'.join([item for item in in_context_modifier_items])
+                modifier_item__ = f'Modifer Group - {category} Modifiers: (ID: {values["modifier_type_id"]}):\n'
+                if modifier_item__ not in in_context_modifier_items_str:
+                    modifier_menu_detail_return += modifier_item__
+                    modifier_menu_detial += modifier_item__
+                    for modifier in values['modifiers']:
+                        modi_data = f"{modifier['name']}: ID: {modifier['id']}: Price: ${modifier['price']}\n"
+                        modifier_menu_detail_return += str(modi_data)
+                        modifier_menu_detial += str(modi_data)
+                    modifier_menu_detail_return += "\n\n\n"
+                    store.lpush(conversation_id + f'-in-{category}-modifier', modifier_menu_detial)
+                else:
+                    modifier_menu_detail_return += in_context_modifier_items_str
+
+    return modifier_menu_detail_return
+
+
 def langchain_conversation(restaurant_number, conversation_id, user_query, history):
     query_with_history = ""
     res = get_restaurant(restaurant_number)
     restaurant_information = json.loads(res.information_json)
     prompt_file = open('./resources/langchain_prompt.txt')
-    pickle_path = "./resources/Retrievers/" + str(res.id) + "_Retriever" + ".pkl"
+    pickle_path = "./resources/Retrievers/" + str(res.id) + "/Retriever" + ".pkl"
     data = prompt_file.read()
     data = data.replace("{name}", res.name)
     data = data.replace("{timings}", restaurant_information['timings'])
@@ -110,7 +169,9 @@ def langchain_conversation(restaurant_number, conversation_id, user_query, histo
         print('Replacing {context} in prompt with ', in_context_menu_items_str)
         print('Replacing {question} in prompt with ', user_query)
 
-        data = data.replace("{context}", in_context_menu_items_str)
+        modifiers = get_modifiers_information(user_query, restaurant_number, conversation_id, in_context_menu_items_str)
+        menu = f'Menu Information:\n{in_context_menu_items_str}\n\n\nModifier Information:\n{modifiers}'
+        data = data.replace("{menu}", menu)
         data = data.replace("{question}", user_query)
 
         query_with_history = copy.deepcopy(history)
