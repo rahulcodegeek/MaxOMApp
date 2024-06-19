@@ -313,7 +313,7 @@ def disconnect(conversation_id):
     conversation_dictionary = store.hgetall(conversation_id)
     res = get_restaurant(conversation_dictionary['to_number'])
     disconnect_response = json.dumps(disconnect_response)
-    add_call_log(conversation_id, res.id, CallStatus.DISCONNECTED, reason)
+    add_call_log(conversation_id, res.id, CallStatus.DISCONNECTED, str(reason))
     # ---> Getting order in json format using order_query of order module
     history = store.lrange(conversation_id + '-user_mes', 0, -1)
 
@@ -511,12 +511,12 @@ def activities(conversation_id):
                 transfer_status_value = data['activities'][0]['value']
                 if transfer_status_value['status'] == 'answered':
                     reason = transfer_status_value['status']
-                    add_call_log(conversation_id, res.id, CallStatus.TRANSFER_SUCCESSFUL, reason)
+                    add_call_log(conversation_id, res.id, CallStatus.TRANSFER_SUCCESSFUL, str(reason))
                 else:
                     reason = (transfer_status_value['status']
                               + ', reasonCode -', transfer_status_value['reasonCode']
                               + ', reason -', transfer_status_value['reason'])
-                    add_call_log(conversation_id, res.id, CallStatus.TRANSFER_FAILED, reason)
+                    add_call_log(conversation_id, res.id, CallStatus.TRANSFER_FAILED, str(reason))
             normal_response = form_response("{}", '')
             return str(normal_response)
 
@@ -592,7 +592,7 @@ def form_response_with_hangup(reply):
 def form_redirection_response(redirection_number, conversation_id, reason):
     conversation_dictionary = store.hgetall(conversation_id)
     res = get_restaurant(conversation_dictionary['to_number'])
-    add_call_log(conversation_id, res.id, CallStatus.TRANSFER_ATTEMPTED, reason)
+    add_call_log(conversation_id, res.id, CallStatus.TRANSFER_ATTEMPTED, str(reason))
 
     # ---> Getting order in json format using order_query of order module
     history = store.lrange(conversation_id + '-user_mes', 0, -1)

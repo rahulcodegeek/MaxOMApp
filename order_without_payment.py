@@ -24,6 +24,7 @@ import os
 open_ai_api_key = os.environ.get('OPEN_AI_API_KEY')
 # --- A function that converts the current order into the json format using ChatGpt
 def order_query(history):
+    current_history = history
     # ---> Prompt for the ChatGpt to return the current order in json format given below in the prompt
     Order_Query = """"Return the current order in the below format and don't add anything else other than the given format
     <JSON OBJECT>
@@ -66,12 +67,12 @@ def order_query(history):
         reply = "Sorry for inconvenience eight. I am connecting you to the actual agent wait for some moments."
         status = 502
     # ---> Extracting the order in json type
-    order = extract_order_json(reply)
+    order = extract_order_json(reply, current_history)
     return order, status
 
 
 # --- A function that extract the order json object from the string
-def extract_order_json(input_string):
+def extract_order_json(input_string, current_history):
     # ---> Extracting the Json from our order repeat string
     order_string = input_string
     # ---> Find the start and end indices of the JSON object within the string
@@ -86,7 +87,7 @@ def extract_order_json(input_string):
             break
         except:
             # ---> If any error occurs get the order again from the ChatGpt
-            order_string = order_query()
+            order_string = order_query(current_history)
     return order_json_1
 
 
