@@ -42,6 +42,7 @@ def order_query(history):
                         }
                     ],
             "customer_name": "customer name",
+            "special_instructions": "special instructions if mentioned by the user otherwise empty string",
             "total_price" : "total price of order"
     }
     </JSON OBJECT>
@@ -119,7 +120,7 @@ def get_tax_rate(restaurant_number):
 
 
 # --- A function to create an order on the clover
-def create_order(baseURL, headers, customer_name, customer_entry, is_test_mode):
+def create_order(baseURL, headers, customer_name, customer_entry, is_test_mode, instructions):
     url = baseURL + 'orders'
     note = ''
     testMode = 'false'
@@ -136,7 +137,7 @@ def create_order(baseURL, headers, customer_name, customer_entry, is_test_mode):
     # TODO - Change this when deploying, enhancement to do these configurations at one place
     payload = {
         "paymentState": "OPEN",
-        "note": note + "\nCustomer Name: " + customer_name + "\nCustomer Phone: " + customer_entry.customer_phone_number
+        "note": note + "\nCustomer Name: " + customer_name + "\nCustomer Phone: " + customer_entry.customer_phone_number + "\nSpecial Instructions by Customer: " + instructions
         # ,testMode
     }
     r = requests.post(url, json=payload, headers=headers)
@@ -341,8 +342,9 @@ def send_order_to_pos(order_id, res_id, is_test_mode, conversation_id):
 
         # ---> Create order and grab order ID
         customer_name = json_order['customer_name']  # This customer name could be sometimes different from the one stored in the customer table
+        instructions = json_order['special_instructions']
         # Example if same phone numer is being used by husband and wife to place the order..
-        order = create_order(baseURL, headers, customer_name, customer_entry, is_test_mode)
+        order = create_order(baseURL, headers, customer_name, customer_entry, is_test_mode, instructions)
         print('base order created in clover ', order)
         data_items = json_order['order']
 
