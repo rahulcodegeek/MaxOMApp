@@ -34,14 +34,13 @@ def order_query(history):
                         "item_price" : 'price (price of the item from the provided menu)',
                         "item_id" : 'id (id of the specific item from the context)',
                         "item_quantity" : 'quantity',
-                        "additional_modifier_name": "additional modifier name (name of the specific additional modifier if selected has additional modifier from the context)"
+                        "modifier_type_name": "modifier type name (name of the specific modifier type user selected if selected item has additional modifier from the context)",
+                        "modifier_type_id": "modifier type id (id of the specific modifier type user selected if selected item has additional modifier from the context)",
+                        "additional_modifier_name": "additional modifier name (name of the specific additional modifier if selected has additional modifier from the context)",
                         "additional_modifier_id": "additional modifier id (id of the specific additional modifier if selected item has additional modifier from the context)"
-                        "modifier_type_name": "modifier type name (name of the specific modifier type user selected if selected item has additional modifier from the context)"
-                        "modifier_type_id": "modifier type id (id of the specific modifier type user selected if selected item has additional modifier from the context)"
                         }
                     ],
             "customer_name": "customer name",
-
             "total_price" : "total price of order"
     }
     </JSON OBJECT>
@@ -166,16 +165,16 @@ def add_modifier_in_line_item(order, item, inlineId, baseURL, headers):
     url = baseURL + 'orders/' + order['id'] + '/line_items/' + inlineId + "/modifications"
     data = {
         "modifier": {
-            "id": item['modifier_type_id']
+            "id": item['additional_modifier_id']
         }
     }
-    print("**Adding modifier", item['modifier_type_id'], ' to lineId', inlineId, ' of the order ',  order['id'])
+    print("**Adding modifier", item['additional_modifier_id'], ' to lineId', inlineId, ' of the order ',  order['id'])
     r = requests.post(url, data=json.dumps(data), headers=headers)
     if r.status_code == 200:
-        print("**Added modifier", item['modifier_type_id'], ' to lineId', inlineId, ' of the order ', order['id'])
+        print("**Added modifier", item['additional_modifier_id'], ' to lineId', inlineId, ' of the order ', order['id'])
         return r.json()
     else:
-        print("**Error in adding modifier", item['modifier_type_id'], ' to lineId', inlineId, ' of the order ', order['id'])
+        print("**Error in adding modifier", item['additional_modifier_id'], ' to lineId', inlineId, ' of the order ', order['id'])
         print(r.json())
 
 
@@ -357,7 +356,7 @@ def send_order_to_pos(order_id, res_id, is_test_mode, conversation_id):
                 print()
                 # ---> Then Add it in the order which is just created
                 inlineItem = add_line_item(order, item, myItem, baseURL, headers)
-                if item['modifier_type_id'] != '':
+                if item['additional_modifier_id'] != '':
                     add_modifier_in_line_item(order, item, inlineItem['id'], baseURL, headers)
         # ---> Open the order so its visible on other devices
         open_order(order, baseURL, headers)
