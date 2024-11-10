@@ -130,4 +130,4 @@ def langchain_conversation(restaurant_number, conversation_id, user_query, histo
         return reply, 200
     except Exception as e:
         print(f"Error: {e}")
-        return "Query Response Couldn't Get", 200
+        return "Query Response Couldn't Get", e

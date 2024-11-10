@@ -6,4 +6,6 @@ class CallStatus(Enum):
    TRANSFER_FAILED          = "TRANSFER_FAILED"
    ENDED_IN_ERROR           = "ENDED_IN_ERROR"
    COMPLETED_WITH_AN_ORDER  = "COMPLETED_WITH_AN_ORDER"
+   SMS_ATTEMPTED            = "SMS_ATTEMPTED"
+   SMS_ERROR                = "SMS_ERROR"
    DISCONNECTED             = "DISCONNECTED"

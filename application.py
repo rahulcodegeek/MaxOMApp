@@ -492,6 +492,8 @@ def activities(conversation_id):
                         print('From <PLACE_ORDER_AND_END_CALL> block for conversation_id response is',
                               conversation_id,
                               status_code, reply)
+                print('Flow at Stage 1, status_code=', status_code)
+                print('Flow at Stage 2, is status_code not 200', status_code != 200)
                 if status_code != 200:
                     redirect_response = form_redirection_response(conversation_dictionary['redirection_number'],
                                                                   conversation_id, "Error In Chat GPT Service")
