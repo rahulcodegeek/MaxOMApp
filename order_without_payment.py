@@ -22,7 +22,8 @@ from database import privateKey
 from langchain_service_1 import store
 import os
 
-open_ai_api_key = os.environ.get('OPEN_AI_API_KEY')
+open_ai_api_key = 'sk-proj-dfEXXww95pDzVEz5ue8c14vx1UISCclBKltmUvtk'+os.environ.get('OPEN_AI_API_KEY')
+
 # --- A function that converts the current order into the json format using ChatGpt
 def order_query(history):
     current_history = history
@@ -241,7 +242,7 @@ def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode,
         res = get_restaurant(to_number)
         restaurant_information = json.loads(res.information_json)
         prompt_file = open('./resources/langchain_prompt.txt')
-        pickle_path = "./resources/Retrievers/" + str(res.id) + "_Retriever" + ".pkl"
+        #pickle_path = "./resources/Retrievers/" + str(res.id) + "_Retriever" + ".pkl"
         data = prompt_file.read()
         data = data.replace("{name}", res.name)
         data = data.replace("{timings}", restaurant_information['timings'])
@@ -257,7 +258,7 @@ def persist_and_send_order_to_pos(history, from_number, to_number, is_test_mode,
         in_context_menu_items = store.lrange(conversation_id + '-in-context-menu-items', 0, -1)
         print('Pulling items from cache ', conversation_id + '-in-context-menu-items ', in_context_menu_items)
 
-        in_context_menu_items_str = '\n'.join([item for item in in_context_menu_items])
+        in_context_menu_items_str = '\n'.join([item.decode('utf-8') for item in in_context_menu_items])
         print('Replacing {context} in prompt with ', in_context_menu_items_str)
 
         data = data.replace("{context}", in_context_menu_items_str)

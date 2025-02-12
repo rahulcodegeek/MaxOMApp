@@ -1,11 +1,11 @@
 from datetime import datetime, time
 import pytz
-
+import time
 from fillers_information import get_randomly_filler_sentence, get_randomly_question_filler_sentence
 from call_status import CallStatus
 from database import db
 
-from flask import Flask, request, session, render_template, send_file
+from flask import Flask, request, session, render_template, send_file, jsonify
 from flask_session import Session
 from flask_cors import CORS
 import threading
@@ -63,7 +63,9 @@ application.secret_key = os.getenv('SECRET_KEY', default='BAD_SECRET_KEY')
 application.config['SESSION_TYPE'] = 'redis'
 application.config['SESSION_PERMANENT'] = False
 application.config['SESSION_USE_SIGNER'] = True
-application.config['SESSION_REDIS'] = redis.Redis.from_url(os.environ.get('REDIS_URL'))
+redis_host = os.environ.get('REDIS_HOST')
+store = redis.Redis(host=redis_host, port=6379, db=0)
+application.config['SESSION_REDIS'] = store
 
 Session(application)
 # --- Enable CORS for all routes in the app
@@ -71,7 +73,6 @@ CORS(application)
 
 # socketio = SocketIO(application, cors_allowed_origins="*")
 
-store = redis.Redis.from_url(os.environ.get('REDIS_URL'))
 database_url = os.environ.get('DB_URL')
 
 is_test_mode = os.environ.get('IS_TEST_MODE')
@@ -311,7 +312,7 @@ def disconnect(conversation_id):
     else:
         reason = "Unknown Reason"
     conversation_dictionary = store.hgetall(conversation_id)
-    res = get_restaurant(conversation_dictionary['to_number'])
+    res = get_restaurant(hget_from_store(conversation_id, 'to_number'))                                                          
     disconnect_response = json.dumps(disconnect_response)
     add_call_log(conversation_id, res.id, CallStatus.DISCONNECTED, str(reason))
     # ---> Getting order in json format using order_query of order module
@@ -325,9 +326,9 @@ def disconnect(conversation_id):
     # happens after the disconnect. This is because same operations below are also done during placing the order
     # (in case the order is Confirmed). If the order is not confirmed then only we create the customer and log the
     # conversation from te below block of the code.
-    if conversation_dictionary['order'] == 'Not-Confirm':
+    if hget_from_store(conversation_id, 'order') == 'Not-Confirm':                                                               
         conversation_text = make_conversation_template(formatted_history)
-        customer_id = add_customer(res.id, "Guest", conversation_dictionary['from_number'])
+        customer_id = add_customer(res.id, "Guest", hget_from_store(conversation_id, 'from_number'))              
         add_conversation(res.id, customer_id, conversation_id, conversation_text)
     return str(disconnect_response)
 
@@ -341,18 +342,28 @@ def activities(conversation_id):
 
     conversation_id = data['conversation']
 
+    temp_loop_uuid = str(uuid.uuid4())
+    profile_at_point_1 = time.time()
     reply = ''
     if 'parameters' in data['activities'][0] and 'callee' in data['activities'][0]['parameters']:
+        print('Pass 1a')
         res = get_restaurant(data['activities'][0]['parameters']['callee'])
+        print('Restaurant derived in 1a ', res)
     else:
+        print('Pass 1b')
         conversation_dictionary = store.hgetall(conversation_id)
-        res = get_restaurant(conversation_dictionary['to_number'])
+        print('In 1b conversation_dictionary is ', conversation_dictionary)
+        res = get_restaurant(hget_from_store(conversation_id,'to_number'))                                                      
+        print('Restaurant derived in 1b ', res)
     try:
         if (data['activities'][0]['type'] == 'message' or
                 (data['activities'][0]['type'] == 'event' and data['activities'][0]['name'] == 'start')):
+            print('Pass 2a')
             conversation_dictionary = store.hgetall(conversation_id)
+            print('In 2a conversation_dictionary is ', conversation_dictionary)
             # this if will only execute if the payload is a start event which happens at the beginning of the call
             if len(conversation_dictionary) == 0:
+                print('Pass 2b')
                 # TODO -- properly fetch these values from the start event
                 restaurant_phone_number = data['activities'][0]['parameters']['callee']
                 calling_phone_number = data['activities'][0]['parameters']['caller']
@@ -366,21 +377,23 @@ def activities(conversation_id):
                 redirection_number = get_restaurant(restaurant_phone_number).redirection_phone_number
                 store.hset(conversation_id, 'redirection_number', str(redirection_number))
                 conversation_dictionary = store.hgetall(conversation_id)
+                print('In 2b conversation_dictionary is ', conversation_dictionary)
                 # persist the STARTED call event
                 add_call_log(conversation_id, res.id, CallStatus.STARTED,
                              'Call received from ' + str(calling_phone_number))
 
+            print('At 2c conversation_dictionary is ', conversation_dictionary)
             # the voice message has arrived and the order is Confirmed
-            if len(conversation_dictionary) != 0 and store.hgetall(conversation_id)['order'] == 'Confirm':
+            if len(conversation_dictionary) != 0 and hget_from_store(conversation_id, 'order') == 'Confirm':              
                 print('Confirming the order from voice block for from_number, session_id',
-                        conversation_dictionary['from_number'], conversation_id)
+                        hget_from_store(conversation_id, 'from_number'), conversation_id)                                        
                 hangup_response = form_hangup_response('Order Confirmed')
                 print('returning hangup_response from the order Confirm block ', hangup_response)
                 return str(hangup_response)
             # this is the normal conversation path
             else:
                 conversation_dictionary = store.hgetall(conversation_id)
-                if (len(conversation_dictionary) != 0 and conversation_dictionary['first_message'] == "True"
+                if (len(conversation_dictionary) != 0 and hget_from_store(conversation_id, 'first_message') == "True"            
                        and status_code == 200):
                     # check if restaurant is open and this is checked when returning the default welcome_message only
                     if is_restaurant_open(res.id):
@@ -403,7 +416,7 @@ def activities(conversation_id):
                         formatted_history.append({"role": "user", "content": user_query})
                         store.rpush(conversation_id + '-user_mes',
                                     json.dumps({"role": "user", "content": user_query}))
-                        reply, status_code = langchain_conversation(conversation_dictionary['to_number'],
+                        reply, status_code = langchain_conversation(hget_from_store(conversation_id, 'to_number'),               
                                                                     conversation_id,
                                                                     user_query,
                                                                     formatted_history)
@@ -415,17 +428,19 @@ def activities(conversation_id):
                                     json.dumps({"role": "assistant", "content": reply}))
                         store.hset(conversation_id, 'first_message', "False")
                     else:
-                        redirect_response = form_redirection_response(conversation_dictionary['redirection_number'],
+                        redirect_response = form_redirection_response(hget_from_store(conversation_id,'redirection_number'),     
                                                                       conversation_id,
                                                                       "Restaurant is closed or unable to help place the order during this time")
                         print('returning redirect_response  ', redirect_response)
                         return str(redirect_response)
 
                 # the call flow comes here when the welcome message has been played and user is chatting now
-                elif len(conversation_dictionary) != 0 and conversation_dictionary['first_message'] == "False":
+                elif len(conversation_dictionary) != 0 and hget_from_store(conversation_id, 'first_message') == "False":
+                    print('Profile for uuid ', temp_loop_uuid)
+                    print('Profile Timing at non first message ', time.time()-profile_at_point_1)
                     # ---> Get the speech recognition result
                     history = store.lrange(conversation_id + '-user_mes', 0, -1)
-                    print('history is ', history)
+                    #print('history is ', history)
                     # Deserialize the messages
                     formatted_history = []
                     for message_str in history:
@@ -462,21 +477,25 @@ def activities(conversation_id):
                                                      'catering']
 
                     if (any(ele in user_query_to_lower_case for ele in call_redirection_phrase_match) and
-                            store.hgetall(conversation_id)['order'] != 'Confirm'):
-                        redirect_response = form_redirection_response(conversation_dictionary['redirection_number'],
+                            hget_from_store(conversation_id,'order') != 'Confirm'):                                      
+                        redirect_response = form_redirection_response(hget_from_store(conversation_id, 'redirection_number'),    
                                                                       conversation_id, "On User request")
                         print('returning redirect_response  ', redirect_response)
                         return str(redirect_response)
 
                     print('user_query is normal conversation is ', user_query)
+                    print('Profile for uuid ', temp_loop_uuid)
+                    print('Profile Timing after redirection evaluation ', time.time() - profile_at_point_1)
 
                     #normal conversation path
-                    reply, status_code = langchain_conversation(conversation_dictionary['to_number'],
+                    reply, status_code = langchain_conversation(hget_from_store(conversation_id, 'to_number'),                   
                                                                 conversation_id,
                                                                 user_query,
                                                                 formatted_history)
 
                     print('response in first_message False from chat is ', conversation_id, reply)
+                    print('Profile for uuid ', temp_loop_uuid)
+                    print('Profile Timing after getting the response from AI ', time.time() - profile_at_point_1)
                     # --> Storing updated conversation
 
                     history.append({"role": "assistant", "content": reply})
@@ -495,15 +514,17 @@ def activities(conversation_id):
                 print('Flow at Stage 1, status_code=', status_code)
                 print('Flow at Stage 2, is status_code not 200', status_code != 200)
                 if status_code != 200:
-                    redirect_response = form_redirection_response(conversation_dictionary['redirection_number'],
+                    redirect_response = form_redirection_response(hget_from_store(conversation_id, 'redirection_number'),        
                                                                   conversation_id, "Error In Chat GPT Service")
                     print('returning redirect_response  ', redirect_response)
                     return str(redirect_response)
                 else:
                     # ---> Normal conversation reply
-                    print('cache [order] value is ', store.hgetall(conversation_id)['order'])
+                    print('cache [order] value is ', hget_from_store(conversation_id, 'order'))                           
                     normal_response = form_response(reply, user_query)
                     print('returning normal_response from the respective block ', normal_response)
+                    print('Profile for uuid ', temp_loop_uuid)
+                    print('Profile Timing at finally returning the response ', time.time() - profile_at_point_1)
                     return str(normal_response)
 
         # As per the current implementation the flow should only come here in case of transferStatus event
@@ -526,7 +547,7 @@ def activities(conversation_id):
     except Exception as e:
         traceback.print_exc()
         # assuming that by now we will have the conversation_dictionary set..
-        redirect_response = form_redirection_response(conversation_dictionary['redirection_number'], conversation_id,
+        redirect_response = form_redirection_response(hget_from_store(conversation_id, 'redirection_number'), conversation_id,   
                                                       str(e))
         print("In Exception block..")
         print('returning redirect_response  ', redirect_response)
@@ -548,11 +569,11 @@ def form_hangup_response(reason):
 
 
 def form_response(reply, user_query):
-    filler = ''
-    if '?' in user_query:
-        filler = get_randomly_question_filler_sentence()
-    else:
-        filler = get_randomly_filler_sentence()
+    #filler = ''
+    #if '?' in user_query:
+    #    filler = get_randomly_question_filler_sentence()
+    #else:
+    #    filler = get_randomly_filler_sentence()
     normal_response = {
         'activities': [
             {
@@ -560,10 +581,10 @@ def form_response(reply, user_query):
                 'timestamp': datetime.utcnow().isoformat(),
                 'language': 'en-US',
                 'type': 'message',
-                'text': '<prosody rate="120%">' + reply + '</prosody>',
-                'sessionParams': {
-                    'botNoInputSpeech': '<prosody rate="120%">' + filler + '</prosody>'
-                }
+                'text': '<prosody rate="1.2">' + reply + '</prosody>',
+                #'sessionParams': {
+                #    'botNoInputSpeech': '<prosody rate="1.4">' + filler + '</prosody>'
+                #}
             }
         ]
     }
@@ -593,7 +614,7 @@ def form_response_with_hangup(reply):
 
 def form_redirection_response(redirection_number, conversation_id, reason):
     conversation_dictionary = store.hgetall(conversation_id)
-    res = get_restaurant(conversation_dictionary['to_number'])
+    res = get_restaurant(hget_from_store(conversation_id, 'to_number'))                                                          
     add_call_log(conversation_id, res.id, CallStatus.TRANSFER_ATTEMPTED, str(reason))
 
     # ---> Getting order in json format using order_query of order module
@@ -604,7 +625,7 @@ def form_redirection_response(redirection_number, conversation_id, reason):
         message = json.loads(message_str)
         formatted_history.append(message)
     convertion_text = make_conversation_template(formatted_history)
-    customer_id = add_customer(res.id, "Guest", conversation_dictionary['from_number'])
+    customer_id = add_customer(res.id, "Guest", hget_from_store(conversation_id, 'from_number'))                   
     conversation_id = add_conversation(res.id, customer_id, conversation_id, convertion_text)
 
     redirect_response = {
@@ -631,6 +652,11 @@ def form_redirection_response(redirection_number, conversation_id, reason):
     }
     return json.dumps(redirect_response)
 
+def hget_from_store(conversation_id, key):
+    value = store.hget(conversation_id, key)
+    if value:
+        value = value.decode('utf-8')
+    return value
 
 # filler and voice_error_handler
 
@@ -646,8 +672,8 @@ def place_order(conversation_id):
         message = json.loads(message_str)
         formatted_history.append(message)
 
-    from_ = conversation_dictionary['from_number']
-    to_ = conversation_dictionary['to_number']
+    from_ = hget_from_store(conversation_id, 'from_number')                                                                      
+    to_ = hget_from_store(conversation_id, 'to_number')                                                                          
 
     def local_persist_and_send_order_to_pos(local_history, local_from, local_to, local_is_test_mode,
                                             local_conversation_id):

@@ -9,8 +9,13 @@ import copy
 import os
 import redis
 
-store = redis.Redis.from_url(os.environ.get('REDIS_URL'))
-open_ai_api_key = os.environ.get('OPEN_AI_API_KEY')
+redis_host = os.environ.get('REDIS_HOST')
+store = redis.Redis(host=redis_host, port=6379, db=0)
+
+#open_ai_api_key = 'sk-proj-xH1Y3zh_goAC5fmq6GTeOlGuKGMnStIkHEaeZhUl'+os.environ.get('OPEN_AI_API_KEY') # Test
+
+open_ai_api_key = 'sk-proj-dp6ssrJz1NZnABoOFvTzvxDM2VToqTVuwiRQayQr'+os.environ.get('OPEN_AI_API_KEY') # Prod
+
 
 def create_embeddings(restaurant_phone_number):
     res = get_restaurant(restaurant_phone_number)
@@ -105,7 +110,7 @@ def langchain_conversation(restaurant_number, conversation_id, user_query, histo
         in_context_menu_items = store.lrange(conversation_id + '-in-context-menu-items', 0, -1)
         print('Pulling items from cache ', conversation_id + '-in-context-menu-items ', in_context_menu_items)
 
-        in_context_menu_items_str = '\n'.join([item for item in in_context_menu_items])
+        in_context_menu_items_str = '\n'.join([item.decode('utf-8') for item in in_context_menu_items])
 
         print('Replacing {context} in prompt with ', in_context_menu_items_str)
         print('Replacing {question} in prompt with ', user_query)

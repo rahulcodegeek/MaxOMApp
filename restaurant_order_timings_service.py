@@ -33,6 +33,9 @@ def is_restaurant_open(restaurant_id):
     print("Is the restaurant open to take phone order?", result)
     return result
 
+#def is_restaurant_open(restaurant_id):
+#    return True
+
 def fetch_opening_hours_from_pos(restaurant_id):
     try:
         # ---> First read the properties using the restaurant id
