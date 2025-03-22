@@ -42,9 +42,9 @@ def order_query(history):
 
     # --> Getting previous conversation
     history.append({"role": "user", "content": user_query})
-    # --> Calling ChatGpt Api and return its reply with status 200 if succesfull other wise return with status 502
+    # --> Calling ChatGpt Api and return its reply with status 200 if successful other wise return with status 502
     try:
-        chat = ChatCompletion.create(model="gpt-4-1106-preview", messages=history)
+        chat = ChatCompletion.create(model="gpt-4o-mini-2024-07-18", messages=history)
         reply = chat.choices[0].message.content
         status = 200
     except OpenAIError as e:

@@ -15,7 +15,7 @@ open_ai_api_key = os.environ.get('OPEN_AI_API_KEY')
 llm = ChatOpenAI(
     openai_api_key=open_ai_api_key,
     temperature=0,
-    model="gpt-4-0125-preview"
+    model="gpt-4o-mini-2024-07-18"
 )
 
 embeddings = OpenAIEmbeddings(

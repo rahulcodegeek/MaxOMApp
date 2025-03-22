@@ -14,7 +14,7 @@ store = redis.Redis(host=redis_host, port=6379, db=0)
 
 #open_ai_api_key = 'sk-proj-xH1Y3zh_goAC5fmq6GTeOlGuKGMnStIkHEaeZhUl'+os.environ.get('OPEN_AI_API_KEY') # Test
 
-open_ai_api_key = 'sk-proj-dp6ssrJz1NZnABoOFvTzvxDM2VToqTVuwiRQayQr'+os.environ.get('OPEN_AI_API_KEY') # Prod
+open_ai_api_key = 'sk-proj-bIhEAlBd5kpLGTysb8fVzrAHwTZFSsn8JAAXeIp5'+os.environ.get('OPEN_AI_API_KEY') # Prod
 
 
 def create_embeddings(restaurant_phone_number):
@@ -127,7 +127,7 @@ def langchain_conversation(restaurant_number, conversation_id, user_query, histo
         client = OpenAI(api_key=open_ai_api_key)
 
         chat = client.chat.completions.create(
-            model="gpt-4-0125-preview",
+            model="gpt-4o-mini-2024-07-18",
             messages=query_with_history
         )
 

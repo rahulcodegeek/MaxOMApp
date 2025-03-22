@@ -22,7 +22,9 @@ from database import privateKey
 from langchain_service_1 import store
 import os
 
-open_ai_api_key = 'sk-proj-dfEXXww95pDzVEz5ue8c14vx1UISCclBKltmUvtk'+os.environ.get('OPEN_AI_API_KEY')
+#open_ai_api_key = 'sk-proj-xH1Y3zh_goAC5fmq6GTeOlGuKGMnStIkHEaeZhUl'+os.environ.get('OPEN_AI_API_KEY') # Test
+
+open_ai_api_key = 'sk-proj-bIhEAlBd5kpLGTysb8fVzrAHwTZFSsn8JAAXeIp5'+os.environ.get('OPEN_AI_API_KEY') # Prod
 
 # --- A function that converts the current order into the json format using ChatGpt
 def order_query(history):
@@ -60,7 +62,7 @@ def order_query(history):
         client = OpenAI(api_key=open_ai_api_key)
 
         chat = client.chat.completions.create(
-            model="gpt-4-0125-preview",
+            model="gpt-4o-mini-2024-07-18",
             messages=history
         )
         reply = chat.choices[0].message.content
