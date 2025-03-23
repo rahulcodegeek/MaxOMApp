@@ -1,4 +1,4 @@
-from menu_service import load_menu
+from gateway_clover.clover_menu_service import load_menu
 from db_persisters.restaurants import get_restaurant
 import json
 

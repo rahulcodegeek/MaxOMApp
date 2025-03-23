@@ -1,11 +1,10 @@
 from datetime import datetime, time
 import pytz
 import time
-from fillers_information import get_randomly_filler_sentence, get_randomly_question_filler_sentence
 from call_status import CallStatus
 from database import db
 
-from flask import Flask, request, session, render_template, send_file, jsonify
+from flask import Flask, request, session, send_file
 from flask_session import Session
 from flask_cors import CORS
 import threading
@@ -15,7 +14,7 @@ from db_persisters.conversation import add_conversation, make_conversation_templ
 from db_persisters.restaurants import add_restaurant, get_restaurant
 from db_persisters.restaurant_system_configuration import add_restaurant_configuration
 
-from menu_service import fetch_remote_menu, persist_menu, load_menu
+from gateway_clover.clover_menu_service import fetch_remote_menu, persist_menu, load_menu
 from langchain_service_1 import langchain_conversation, create_embeddings
 from order_without_payment import persist_and_send_order_to_pos
 from db_persisters.call_logs import add_call_log
@@ -93,23 +92,6 @@ def get_health():
     data = json.dumps(data)
     return str(data)
 
-
-@application.route("/", methods=['POST'])
-def voice():
-    print('request in / POST method is ', request.get_data())
-    data = json.loads(request.get_data())
-
-    conversation_id = data['conversation']
-
-    data = {
-        'activitiesURL': 'conversation/' + conversation_id + '/activities',
-        'refreshURL': 'conversation/' + conversation_id + '/refresh',
-        'disconnectURL': 'conversation/' + conversation_id + '/disconnect',
-        'expiresSeconds': 60
-    }
-    data = json.dumps(data)
-    print('data being sent back ', str(data))
-    return str(data)
 
 
 # --- Route to create the database tables which is defined in database file
@@ -287,34 +269,18 @@ def initialize_application_menu(restaurant_phone_number):
 #         print(str(e))
 #         return "Sorry for inconvenience four. I am connecting you to the actual agent wait for some moments", 500
 
+def hget_from_store(conversation_id, key):
+    value = store.hget(conversation_id, key)
+    if value:
+        value = value.decode('utf-8')
+    return value
 
-@application.route("/conversation/<conversation_id>/refresh", methods=['POST'])
-def refresh(conversation_id):
-    data = json.loads(request.get_data())
-    print('request in refresh POST method is ', data)
+# filler and voice_error_handler
 
-    refresh_response = {
-        "expiresSeconds": 60
-    }
-    refresh_response = json.dumps(refresh_response)
-    return str(refresh_response)
-
-
-@application.route("/conversation/<conversation_id>/disconnect", methods=['POST'])
-def disconnect(conversation_id):
-    data = json.loads(request.get_data())
-    print('request in disconnect POST method is ', data)
-
-    disconnect_response = {
-    }
-    if "reason" in data:
-        reason = data['reason']
-    else:
-        reason = "Unknown Reason"
+# --- Route to place the order
+@application.route("/place_order", methods=['POST'])
+def place_order(conversation_id):
     conversation_dictionary = store.hgetall(conversation_id)
-    res = get_restaurant(hget_from_store(conversation_id, 'to_number'))                                                          
-    disconnect_response = json.dumps(disconnect_response)
-    add_call_log(conversation_id, res.id, CallStatus.DISCONNECTED, str(reason))
     # ---> Getting order in json format using order_query of order module
     history = store.lrange(conversation_id + '-user_mes', 0, -1)
 
@@ -322,16 +288,65 @@ def disconnect(conversation_id):
     for message_str in history:
         message = json.loads(message_str)
         formatted_history.append(message)
-    # the following condition is a quickfix to prevent the race condition in the async operation to place the order that
-    # happens after the disconnect. This is because same operations below are also done during placing the order
-    # (in case the order is Confirmed). If the order is not confirmed then only we create the customer and log the
-    # conversation from te below block of the code.
-    if hget_from_store(conversation_id, 'order') == 'Not-Confirm':                                                               
-        conversation_text = make_conversation_template(formatted_history)
-        customer_id = add_customer(res.id, "Guest", hget_from_store(conversation_id, 'from_number'))              
-        add_conversation(res.id, customer_id, conversation_id, conversation_text)
-    return str(disconnect_response)
 
+    from_ = hget_from_store(conversation_id, 'from_number')
+    to_ = hget_from_store(conversation_id, 'to_number')
+
+    def local_persist_and_send_order_to_pos(local_history, local_from, local_to, local_is_test_mode,
+                                            local_conversation_id):
+        with application.test_request_context():
+            persist_and_send_order_to_pos(local_history, local_from, local_to, local_is_test_mode,
+                                          local_conversation_id)
+
+    # ---> Sending payment message to customer
+    thread = threading.Thread(
+        target=local_persist_and_send_order_to_pos,
+        args=(
+            formatted_history, from_, to_, is_test_mode, conversation_id
+        )
+    )
+
+    thread.start()
+    # TODO - delete the cache entries
+    print("End session called from place_order for session ", conversation_id)
+
+    # store.delete(conversation_id)
+
+    print('returning with the hang_up_event_as_response from place_order as  ', 200)
+    return 200
+
+
+@application.route('/download_logs')
+def download_logs():
+    try:
+        if os.path.exists('logs.zip'):
+            os.remove('logs.zip')
+        with zipfile.ZipFile('logs.zip', 'w') as zipf:
+            zipf.write('logs/output_log.txt', os.path.basename('output_log.txt'))
+            zipf.write('logs/error_log.txt', os.path.basename('error_log.txt'))
+
+        # Send the ZIP file as an attachment
+        return send_file('logs.zip', as_attachment=True)
+    except Exception as e:
+        traceback.print_exc()
+        return str(e)
+
+@application.route("/", methods=['POST'])
+def voice():
+    print('request in / POST method is ', request.get_data())
+    data = json.loads(request.get_data())
+
+    conversation_id = data['conversation']
+
+    data = {
+        'activitiesURL': 'conversation/' + conversation_id + '/activities',
+        'refreshURL': 'conversation/' + conversation_id + '/refresh',
+        'disconnectURL': 'conversation/' + conversation_id + '/disconnect',
+        'expiresSeconds': 60
+    }
+    data = json.dumps(data)
+    print('data being sent back ', str(data))
+    return str(data)
 
 @application.route("/conversation/<conversation_id>/activities", methods=['POST'])
 def activities(conversation_id):
@@ -349,6 +364,7 @@ def activities(conversation_id):
         print('Pass 1a')
         res = get_restaurant(data['activities'][0]['parameters']['callee'])
         print('Restaurant derived in 1a ', res)
+    #cache is already having the entry for this conversation idd
     else:
         print('Pass 1b')
         conversation_dictionary = store.hgetall(conversation_id)
@@ -358,12 +374,9 @@ def activities(conversation_id):
     try:
         if (data['activities'][0]['type'] == 'message' or
                 (data['activities'][0]['type'] == 'event' and data['activities'][0]['name'] == 'start')):
-            print('Pass 2a')
             conversation_dictionary = store.hgetall(conversation_id)
-            print('In 2a conversation_dictionary is ', conversation_dictionary)
             # this if will only execute if the payload is a start event which happens at the beginning of the call
             if len(conversation_dictionary) == 0:
-                print('Pass 2b')
                 # TODO -- properly fetch these values from the start event
                 restaurant_phone_number = data['activities'][0]['parameters']['callee']
                 calling_phone_number = data['activities'][0]['parameters']['caller']
@@ -382,7 +395,7 @@ def activities(conversation_id):
                 add_call_log(conversation_id, res.id, CallStatus.STARTED,
                              'Call received from ' + str(calling_phone_number))
 
-            print('At 2c conversation_dictionary is ', conversation_dictionary)
+            print('At the initial start event conversation_dictionary is set as ', conversation_dictionary)
             # the voice message has arrived and the order is Confirmed
             if len(conversation_dictionary) != 0 and hget_from_store(conversation_id, 'order') == 'Confirm':              
                 print('Confirming the order from voice block for from_number, session_id',
@@ -393,7 +406,8 @@ def activities(conversation_id):
             # this is the normal conversation path
             else:
                 conversation_dictionary = store.hgetall(conversation_id)
-                if (len(conversation_dictionary) != 0 and hget_from_store(conversation_id, 'first_message') == "True"            
+                # the following block will return the very first message from the bot
+                if (len(conversation_dictionary) != 0 and hget_from_store(conversation_id, 'first_message') == "True"
                        and status_code == 200):
                     # check if restaurant is open and this is checked when returning the default welcome_message only
                     if is_restaurant_open(res.id):
@@ -416,6 +430,9 @@ def activities(conversation_id):
                         formatted_history.append({"role": "user", "content": user_query})
                         store.rpush(conversation_id + '-user_mes',
                                     json.dumps({"role": "user", "content": user_query}))
+
+                        print('1. res derived earlier in flow is  ', res)
+
                         reply, status_code = langchain_conversation(hget_from_store(conversation_id, 'to_number'),               
                                                                     conversation_id,
                                                                     user_query,
@@ -488,7 +505,9 @@ def activities(conversation_id):
                     print('Profile Timing after redirection evaluation ', time.time() - profile_at_point_1)
 
                     #normal conversation path
-                    reply, status_code = langchain_conversation(hget_from_store(conversation_id, 'to_number'),                   
+                    print('2. res derived earlier in flow is  ', res)
+
+                    reply, status_code = langchain_conversation(hget_from_store(conversation_id, 'to_number'),
                                                                 conversation_id,
                                                                 user_query,
                                                                 formatted_history)
@@ -553,6 +572,49 @@ def activities(conversation_id):
         print('returning redirect_response  ', redirect_response)
         return str(redirect_response)
 
+@application.route("/conversation/<conversation_id>/refresh", methods=['POST'])
+def refresh(conversation_id):
+    data = json.loads(request.get_data())
+    print('request in refresh POST method is ', data)
+
+    refresh_response = {
+        "expiresSeconds": 60
+    }
+    refresh_response = json.dumps(refresh_response)
+    return str(refresh_response)
+
+
+@application.route("/conversation/<conversation_id>/disconnect", methods=['POST'])
+def disconnect(conversation_id):
+    data = json.loads(request.get_data())
+    print('request in disconnect POST method is ', data)
+
+    disconnect_response = {
+    }
+    if "reason" in data:
+        reason = data['reason']
+    else:
+        reason = "Unknown Reason"
+    conversation_dictionary = store.hgetall(conversation_id)
+    res = get_restaurant(hget_from_store(conversation_id, 'to_number'))
+    disconnect_response = json.dumps(disconnect_response)
+    add_call_log(conversation_id, res.id, CallStatus.DISCONNECTED, str(reason))
+    # ---> Getting order in json format using order_query of order module
+    history = store.lrange(conversation_id + '-user_mes', 0, -1)
+
+    formatted_history = []
+    for message_str in history:
+        message = json.loads(message_str)
+        formatted_history.append(message)
+    # the following condition is a quickfix to prevent the race condition in the async operation to place the order that
+    # happens after the disconnect. This is because same operations below are also done during placing the order
+    # (in case the order is Confirmed). If the order is not confirmed then only we create the customer and log the
+    # conversation from te below block of the code.
+    if hget_from_store(conversation_id, 'order') == 'Not-Confirm':
+        conversation_text = make_conversation_template(formatted_history)
+        customer_id = add_customer(res.id, "Guest", hget_from_store(conversation_id, 'from_number'))
+        add_conversation(res.id, customer_id, conversation_id, conversation_text)
+    return str(disconnect_response)
 
 def form_hangup_response(reason):
     hangup_response = {
@@ -651,69 +713,6 @@ def form_redirection_response(redirection_number, conversation_id, reason):
         ]
     }
     return json.dumps(redirect_response)
-
-def hget_from_store(conversation_id, key):
-    value = store.hget(conversation_id, key)
-    if value:
-        value = value.decode('utf-8')
-    return value
-
-# filler and voice_error_handler
-
-# --- Route to place the order
-@application.route("/place_order", methods=['POST'])
-def place_order(conversation_id):
-    conversation_dictionary = store.hgetall(conversation_id)
-    # ---> Getting order in json format using order_query of order module
-    history = store.lrange(conversation_id + '-user_mes', 0, -1)
-
-    formatted_history = []
-    for message_str in history:
-        message = json.loads(message_str)
-        formatted_history.append(message)
-
-    from_ = hget_from_store(conversation_id, 'from_number')                                                                      
-    to_ = hget_from_store(conversation_id, 'to_number')                                                                          
-
-    def local_persist_and_send_order_to_pos(local_history, local_from, local_to, local_is_test_mode,
-                                            local_conversation_id):
-        with application.test_request_context():
-            persist_and_send_order_to_pos(local_history, local_from, local_to, local_is_test_mode,
-                                          local_conversation_id)
-
-    # ---> Sending payment message to customer
-    thread = threading.Thread(
-        target=local_persist_and_send_order_to_pos,
-        args=(
-            formatted_history, from_, to_, is_test_mode, conversation_id
-        )
-    )
-
-    thread.start()
-    # TODO - delete the cache entries
-    print("End session called from place_order for session ", conversation_id)
-
-    # store.delete(conversation_id)
-
-    print('returning with the hang_up_event_as_response from place_order as  ', 200)
-    return 200
-
-
-@application.route('/download_logs')
-def download_logs():
-    try:
-        if os.path.exists('logs.zip'):
-            os.remove('logs.zip')
-        with zipfile.ZipFile('logs.zip', 'w') as zipf:
-            zipf.write('logs/output_log.txt', os.path.basename('output_log.txt'))
-            zipf.write('logs/error_log.txt', os.path.basename('error_log.txt'))
-
-        # Send the ZIP file as an attachment
-        return send_file('logs.zip', as_attachment=True)
-    except Exception as e:
-        traceback.print_exc()
-        return str(e)
-
 
 if __name__ == '__main__':
     application.run(debug=True)
